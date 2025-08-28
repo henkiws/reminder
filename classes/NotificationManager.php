@@ -1,0 +1,419 @@
+<?php
+// classes/NotificationManager.php
+require_once __DIR__ . '/WhatsAppAPI.php';
+
+class NotificationManager {
+    private $conn;
+    private $whatsapp;
+
+    public function __construct($database) {
+        $this->conn = $database;
+        $this->whatsapp = new WhatsAppAPI($database);
+    }
+
+    // Membuat notifikasi baru dengan user context
+    public function createNotification($data) {
+        try {
+            $this->conn->beginTransaction();
+
+            $query = "INSERT INTO scheduled_notifications 
+                     (title, message, template_id, send_to_type, scheduled_datetime, 
+                      repeat_type, repeat_interval, repeat_until, created_by, user_id) 
+                     VALUES (:title, :message, :template_id, :send_to_type, :scheduled_datetime,
+                             :repeat_type, :repeat_interval, :repeat_until, :created_by, :user_id)";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute([
+                ':title' => $data['title'],
+                ':message' => $data['message'],
+                ':template_id' => $data['template_id'] ?? null,
+                ':send_to_type' => $data['send_to_type'],
+                ':scheduled_datetime' => $data['scheduled_datetime'],
+                ':repeat_type' => $data['repeat_type'] ?? 'once',
+                ':repeat_interval' => $data['repeat_interval'] ?? 1,
+                ':repeat_until' => $data['repeat_until'] ?? null,
+                ':created_by' => $data['created_by'] ?? 'system',
+                ':user_id' => $data['user_id'] ?? null
+            ]);
+
+            $notification_id = $this->conn->lastInsertId();
+
+            // Tambahkan kontak jika ada
+            if (!empty($data['contacts'])) {
+                foreach ($data['contacts'] as $contact_id) {
+                    $query = "INSERT INTO notification_contacts (notification_id, contact_id) VALUES (?, ?)";
+                    $stmt = $this->conn->prepare($query);
+                    $stmt->execute([$notification_id, $contact_id]);
+                }
+            }
+
+            // Tambahkan grup jika ada
+            if (!empty($data['groups'])) {
+                foreach ($data['groups'] as $group_id) {
+                    $query = "INSERT INTO notification_groups (notification_id, group_id) VALUES (?, ?)";
+                    $stmt = $this->conn->prepare($query);
+                    $stmt->execute([$notification_id, $group_id]);
+                }
+            }
+
+            $this->conn->commit();
+            return ['success' => true, 'id' => $notification_id];
+
+        } catch (Exception $e) {
+            $this->conn->rollback();
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    // Mengirim notifikasi yang sudah terjadwal
+    public function sendScheduledNotifications() {
+        $query = "SELECT * FROM scheduled_notifications 
+                  WHERE status = 'pending' AND is_active = 1 
+                  AND scheduled_datetime <= NOW()";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute();
+        $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $results = [];
+        foreach ($notifications as $notification) {
+            $results[] = $this->sendNotification($notification['id']);
+        }
+
+        return $results;
+    }
+
+    // Mengirim satu notifikasi
+    public function sendNotification($notification_id) {
+        try {
+            // Ambil data notifikasi
+            $query = "SELECT * FROM scheduled_notifications WHERE id = ?";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute([$notification_id]);
+            $notification = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$notification) {
+                throw new Exception("Notification not found");
+            }
+
+            $success_count = 0;
+            $fail_count = 0;
+
+            // Kirim ke kontak
+            if ($notification['send_to_type'] == 'contact' || $notification['send_to_type'] == 'both') {
+                $contacts = $this->getNotificationContacts($notification_id);
+                foreach ($contacts as $contact) {
+                    $result = $this->whatsapp->sendMessage($contact['phone'], $notification['message']);
+                    
+                    // Log hasil pengiriman
+                    $this->logMessage($notification_id, 'contact', $contact['id'], 
+                                    $contact['phone'], $notification['message'], 
+                                    $result['response'], $result['success'] ? 'success' : 'failed');
+                    
+                    if ($result['success']) {
+                        $success_count++;
+                    } else {
+                        $fail_count++;
+                    }
+                }
+            }
+
+            // Kirim ke grup
+            if ($notification['send_to_type'] == 'group' || $notification['send_to_type'] == 'both') {
+                $groups = $this->getNotificationGroups($notification_id);
+                foreach ($groups as $group) {
+                    $result = $this->whatsapp->sendMessage($group['group_id'], $notification['message'], true);
+                    
+                    // Log hasil pengiriman
+                    $this->logMessage($notification_id, 'group', $group['id'], 
+                                    $group['group_id'], $notification['message'], 
+                                    $result['response'], $result['success'] ? 'success' : 'failed');
+                    
+                    if ($result['success']) {
+                        $success_count++;
+                    } else {
+                        $fail_count++;
+                    }
+                }
+            }
+
+            // Update status notifikasi
+            $status = $fail_count == 0 ? 'sent' : ($success_count == 0 ? 'failed' : 'sent');
+            $this->updateNotificationStatus($notification_id, $status);
+
+            // Jika ada pengulangan, buat notifikasi berikutnya
+            if ($notification['repeat_type'] != 'once') {
+                $this->scheduleNextRepeat($notification);
+            }
+
+            return [
+                'success' => true, 
+                'sent' => $success_count, 
+                'failed' => $fail_count,
+                'notification_id' => $notification_id
+            ];
+
+        } catch (Exception $e) {
+            $this->updateNotificationStatus($notification_id, 'failed');
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    private function getNotificationContacts($notification_id) {
+        $query = "SELECT c.* FROM contacts c 
+                  JOIN notification_contacts nc ON c.id = nc.contact_id 
+                  WHERE nc.notification_id = ? AND c.is_active = 1";
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute([$notification_id]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    private function getNotificationGroups($notification_id) {
+        $query = "SELECT g.* FROM `wa_groups` g 
+                  JOIN notification_groups ng ON g.id = ng.group_id 
+                  WHERE ng.notification_id = ? AND g.is_active = 1";
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute([$notification_id]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    private function logMessage($notification_id, $recipient_type, $recipient_id, 
+                               $phone_number, $message, $response_data, $status) {
+        $query = "INSERT INTO message_logs 
+                  (notification_id, recipient_type, recipient_id, phone_number, 
+                   message, response_data, status) 
+                  VALUES (?, ?, ?, ?, ?, ?, ?)";
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute([
+            $notification_id, $recipient_type, $recipient_id, $phone_number,
+            $message, json_encode($response_data), $status
+        ]);
+    }
+
+    private function updateNotificationStatus($notification_id, $status) {
+        $query = "UPDATE scheduled_notifications SET status = ? WHERE id = ?";
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute([$status, $notification_id]);
+    }
+
+    private function scheduleNextRepeat($notification) {
+        $current_datetime = new DateTime($notification['scheduled_datetime']);
+        
+        switch ($notification['repeat_type']) {
+            case 'daily':
+                $current_datetime->add(new DateInterval('P' . $notification['repeat_interval'] . 'D'));
+                break;
+            case 'weekly':
+                $current_datetime->add(new DateInterval('P' . ($notification['repeat_interval'] * 7) . 'D'));
+                break;
+            case 'monthly':
+                $current_datetime->add(new DateInterval('P' . $notification['repeat_interval'] . 'M'));
+                break;
+        }
+
+        // Cek apakah masih dalam batas waktu pengulangan
+        if ($notification['repeat_until'] && $current_datetime->format('Y-m-d') > $notification['repeat_until']) {
+            return; // Tidak membuat pengulangan lagi
+        }
+
+        // Buat notifikasi baru untuk pengulangan
+        $query = "INSERT INTO scheduled_notifications 
+                  (title, message, template_id, send_to_type, scheduled_datetime, 
+                   repeat_type, repeat_interval, repeat_until, created_by) 
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute([
+            $notification['title'],
+            $notification['message'],
+            $notification['template_id'],
+            $notification['send_to_type'],
+            $current_datetime->format('Y-m-d H:i:s'),
+            $notification['repeat_type'],
+            $notification['repeat_interval'],
+            $notification['repeat_until'],
+            $notification['created_by']
+        ]);
+
+        $new_notification_id = $this->conn->lastInsertId();
+
+        // Copy kontak dan grup untuk notifikasi baru
+        $this->copyNotificationRecipients($notification['id'], $new_notification_id);
+    }
+
+    private function copyNotificationRecipients($old_id, $new_id) {
+        // Copy kontak
+        $query = "INSERT INTO notification_contacts (notification_id, contact_id)
+                  SELECT ?, contact_id FROM notification_contacts WHERE notification_id = ?";
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute([$new_id, $old_id]);
+
+        // Copy grup
+        $query = "INSERT INTO notification_groups (notification_id, group_id)
+                  SELECT ?, group_id FROM notification_groups WHERE notification_id = ?";
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute([$new_id, $old_id]);
+    }
+
+    // Template processing
+    public function processTemplate($template, $variables) {
+        foreach ($variables as $key => $value) {
+            $template = str_replace('{' . $key . '}', $value, $template);
+        }
+        return $template;
+    }
+
+    // Get all notifications with user filtering
+    public function getNotifications($limit = 50, $offset = 0, $userId = null) {
+        // Ensure limit and offset are integers
+        $limit = (int)$limit;
+        $offset = (int)$offset;
+        
+        if ($userId && !$this->hasAdminPermission()) {
+            // Regular user - only see their own notifications
+            $query = "SELECT sn.*, 
+                             COUNT(DISTINCT nc.id) as contact_count,
+                             COUNT(DISTINCT ng.id) as group_count,
+                             u.full_name as created_by_name
+                      FROM scheduled_notifications sn 
+                      LEFT JOIN notification_contacts nc ON sn.id = nc.notification_id
+                      LEFT JOIN notification_groups ng ON sn.id = ng.notification_id
+                      LEFT JOIN users u ON sn.user_id = u.id
+                      WHERE sn.user_id = ?
+                      GROUP BY sn.id
+                      ORDER BY sn.created_at DESC 
+                      LIMIT {$limit} OFFSET {$offset}";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute([$userId]);
+        } else {
+            // Admin - see all notifications
+            $query = "SELECT sn.*, 
+                             COUNT(DISTINCT nc.id) as contact_count,
+                             COUNT(DISTINCT ng.id) as group_count,
+                             u.full_name as created_by_name
+                      FROM scheduled_notifications sn 
+                      LEFT JOIN notification_contacts nc ON sn.id = nc.notification_id
+                      LEFT JOIN notification_groups ng ON sn.id = ng.notification_id
+                      LEFT JOIN users u ON sn.user_id = u.id
+                      GROUP BY sn.id
+                      ORDER BY sn.created_at DESC 
+                      LIMIT {$limit} OFFSET {$offset}";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute();
+        }
+        
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    // Get templates with user filtering  
+    public function getTemplates($userId = null) {
+        $query = "SELECT mt.*, nc.name as category_name 
+                  FROM message_templates mt 
+                  LEFT JOIN notification_categories nc ON mt.category_id = nc.id 
+                  WHERE mt.is_active = 1 AND (mt.user_id IS NULL OR mt.user_id = ?)
+                  ORDER BY nc.name, mt.title";
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute([$userId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    // Get contacts with user filtering
+    public function getContacts($userId = null) {
+        if ($userId && !$this->hasAdminPermission()) {
+            // Regular user - only see their own contacts and shared ones
+            $query = "SELECT * FROM contacts WHERE (user_id IS NULL OR user_id = ?) AND is_active = 1 ORDER BY name";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute([$userId]);
+        } else {
+            // Admin - see all contacts
+            $query = "SELECT * FROM contacts WHERE is_active = 1 ORDER BY name";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute();
+        }
+        
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    // Get groups with user filtering
+    public function getGroups($userId = null) {
+        if ($userId && !$this->hasAdminPermission()) {
+            // Regular user - only see their own groups and shared ones
+            $query = "SELECT * FROM `wa_groups` WHERE (user_id IS NULL OR user_id = ?) AND is_active = 1 ORDER BY name";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute([$userId]);
+        } else {
+            // Admin - see all groups
+            $query = "SELECT * FROM `wa_groups` WHERE is_active = 1 ORDER BY name";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute();
+        }
+        
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    // Add contact with user ownership
+    public function addContact($name, $phone, $userId = null) {
+        $query = "INSERT INTO contacts (name, phone, user_id) VALUES (?, ?, ?)";
+        $stmt = $this->conn->prepare($query);
+        return $stmt->execute([$name, $phone, $userId]);
+    }
+
+    // Add group with user ownership
+    public function addGroup($name, $group_id, $description = '', $userId = null) {
+        $query = "INSERT INTO `wa_groups` (name, group_id, description, user_id) VALUES (?, ?, ?, ?)";
+        $stmt = $this->conn->prepare($query);
+        return $stmt->execute([$name, $group_id, $description, $userId]);
+    }
+    
+    // Helper method to check admin permissions
+    private function hasAdminPermission() {
+        // This would be implemented based on your session management
+        // For now, we'll assume if user_id is 1, they're admin
+        return isset($_SESSION['user_id']) && ($_SESSION['role_name'] === 'Super Admin' || $_SESSION['role_name'] === 'Admin');
+    }
+
+    // Set user context for operations
+    public function setUserId($userId) {
+        $this->userId = $userId;
+    }
+
+    // Delete contact
+    public function deleteContact($id) {
+        $query = "UPDATE contacts SET is_active = 0 WHERE id = ?";
+        $stmt = $this->conn->prepare($query);
+        return $stmt->execute([$id]);
+    }
+
+    // Delete group
+    public function deleteGroup($id) {
+        $query = "UPDATE `wa_groups` SET is_active = 0 WHERE id = ?";
+        $stmt = $this->conn->prepare($query);
+        return $stmt->execute([$id]);
+    }
+
+    // Get message logs
+    public function getMessageLogs($notification_id = null, $limit = 100) {
+        if ($notification_id) {
+            $query = "SELECT ml.*, sn.title as notification_title 
+                      FROM message_logs ml
+                      JOIN scheduled_notifications sn ON ml.notification_id = sn.id
+                      WHERE ml.notification_id = ?
+                      ORDER BY ml.sent_at DESC 
+                      LIMIT ?";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute([$notification_id, $limit]);
+        } else {
+            $query = "SELECT ml.*, sn.title as notification_title 
+                      FROM message_logs ml
+                      JOIN scheduled_notifications sn ON ml.notification_id = sn.id
+                      ORDER BY ml.sent_at DESC 
+                      LIMIT ?";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute([$limit]);
+        }
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+}
+?>
