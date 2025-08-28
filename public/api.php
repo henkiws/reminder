@@ -78,6 +78,17 @@ try {
                         echo json_encode(['error' => 'Missing required fields']);
                         break;
                     }
+
+                    if (!empty($input['template_vars']) && is_array($input['template_vars'])) {
+                        // Store template variables for processing during send
+                        $input['template_variables'] = json_encode($input['template_vars']);
+                        
+                        // For immediate sending, process the template now
+                        if (isset($input['action']) && $input['action'] === 'send_now') {
+                            $processedMessage = $notificationManager->processTemplate($input['message'], $input['template_vars']);
+                            $input['message'] = $processedMessage;
+                        }
+                    }
                     
                     // Add user_id to notification
                     $input['user_id'] = $currentUser['id'];
@@ -161,6 +172,89 @@ try {
                     
                     $processed = $notificationManager->processTemplate($input['template'], $input['variables']);
                     echo json_encode(['processed_message' => $processed]);
+                    break;
+                case 'preview-template':
+                    if (empty($input['message'])) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'Message required']);
+                        break;
+                    }
+                    
+                    $message = $input['message'];
+                    $variables = $input['variables'] ?? [];
+                    $contactName = $input['contact_name'] ?? 'John Doe';
+                    
+                    // Process the template
+                    $processed = $notificationManager->previewTemplate($message, $variables, $contactName);
+                    
+                    // Get list of variables found in template
+                    $foundVariables = $notificationManager->getTemplateVariables($message);
+                    
+                    echo json_encode([
+                        'success' => true,
+                        'processed_message' => $processed,
+                        'variables_found' => $foundVariables,
+                        'variables_used' => $variables
+                    ]);
+                    break;
+
+                case 'get-template-variables':
+                    if (empty($input['message'])) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'Message required']);
+                        break;
+                    }
+                    
+                    $variables = $notificationManager->getTemplateVariables($input['message']);
+                    echo json_encode([
+                        'success' => true,
+                        'variables' => $variables
+                    ]);
+                    break;
+
+                // In the notification creation case, update to handle template variables:
+                case 'notification':
+                    requirePermission('notification.create');
+                    
+                    // Validation
+                    if (empty($input['title']) || empty($input['message']) || empty($input['send_to_type'])) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'Missing required fields']);
+                        break;
+                    }
+                    
+                    // Add user_id to notification
+                    $input['user_id'] = $currentUser['id'];
+                    $input['created_by'] = $currentUser['username'];
+                    
+                    // Handle template variables
+                    if (!empty($input['template_vars']) && is_array($input['template_vars'])) {
+                        // Clean empty variables
+                        $templateVars = array_filter($input['template_vars'], function($value) {
+                            return !empty(trim($value));
+                        });
+                        
+                        if (!empty($templateVars)) {
+                            $input['template_variables'] = json_encode($templateVars);
+                        }
+                    }
+                    
+                    // Create scheduled_datetime
+                    if (!empty($input['scheduled_date']) && !empty($input['scheduled_time'])) {
+                        $input['scheduled_datetime'] = $input['scheduled_date'] . ' ' . $input['scheduled_time'];
+                    } else {
+                        $input['scheduled_datetime'] = date('Y-m-d H:i:s');
+                    }
+                    
+                    $result = $notificationManager->createNotification($input);
+                    
+                    // If action is send_now, send immediately
+                    if ($result['success'] && isset($input['action']) && $input['action'] === 'send_now') {
+                        $sendResult = $notificationManager->sendNotification($result['id']);
+                        $result['send_result'] = $sendResult;
+                    }
+                    
+                    echo json_encode($result);
                     break;
                     
                 default:

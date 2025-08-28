@@ -1,7 +1,7 @@
 <div class="bg-white p-6 rounded-lg shadow">
     <div class="flex justify-between items-center mb-6">
         <h3 class="text-lg font-semibold text-gray-900">Manajemen Kontak</h3>
-        <button data-modal-target="addContactModal" data-modal-toggle="addContactModal" class="text-white bg-green-600 hover:bg-green-700 focus:ring-4 focus:outline-none focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">
+        <button type="button" data-modal-target="addContactModal" data-modal-toggle="addContactModal" class="text-white bg-green-600 hover:bg-green-700 focus:ring-4 focus:outline-none focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">
             <i class="fas fa-plus mr-2"></i>Tambah Kontak
         </button>
     </div>
@@ -36,10 +36,10 @@
                     </td>
                     <td class="px-6 py-4">
                         <div class="flex space-x-2">
-                            <button onclick="editContact(<?php echo $contact['id']; ?>, '<?php echo htmlspecialchars($contact['name']); ?>', '<?php echo htmlspecialchars($contact['phone']); ?>')" class="text-blue-600 hover:text-blue-900">
+                            <button type="button" onclick="editContact(<?php echo $contact['id']; ?>, '<?php echo htmlspecialchars($contact['name'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($contact['phone'], ENT_QUOTES); ?>')" class="text-blue-600 hover:text-blue-900" title="Edit Kontak">
                                 <i class="fas fa-edit"></i>
                             </button>
-                            <button onclick="deleteContact(<?php echo $contact['id']; ?>)" class="text-red-600 hover:text-red-900">
+                            <button type="button" onclick="deleteContact(<?php echo $contact['id']; ?>)" class="text-red-600 hover:text-red-900" title="Hapus Kontak">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
@@ -52,14 +52,14 @@
 </div>
 
 <!-- Add Contact Modal -->
-<div id="addContactModal" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+<div id="addContactModal" tabindex="-1" aria-hidden="true" role="dialog" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
     <div class="relative p-4 w-full max-w-md max-h-full">
         <div class="relative bg-white rounded-lg shadow">
             <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t">
                 <h3 class="text-lg font-semibold text-gray-900">
                     Tambah Kontak Baru
                 </h3>
-                <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center" data-modal-toggle="addContactModal">
+                <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center" data-modal-hide="addContactModal">
                     <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
                         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
                     </svg>
@@ -79,7 +79,7 @@
                     </div>
                 </div>
                 <div class="flex justify-end space-x-4">
-                    <button data-modal-hide="addContactModal" type="button" class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10">
+                    <button type="button" data-modal-hide="addContactModal" class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10">
                         Batal
                     </button>
                     <button type="submit" class="text-white inline-flex items-center bg-green-600 hover:bg-green-700 focus:ring-4 focus:outline-none focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">
@@ -93,14 +93,14 @@
 </div>
 
 <!-- Edit Contact Modal -->
-<div id="editContactModal" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+<div id="editContactModal" tabindex="-1" aria-hidden="true" role="dialog" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
     <div class="relative p-4 w-full max-w-md max-h-full">
         <div class="relative bg-white rounded-lg shadow">
             <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t">
                 <h3 class="text-lg font-semibold text-gray-900">
                     Edit Kontak
                 </h3>
-                <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center" data-modal-toggle="editContactModal">
+                <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center" data-modal-hide="editContactModal">
                     <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
                         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
                     </svg>
@@ -120,7 +120,7 @@
                     </div>
                 </div>
                 <div class="flex justify-end space-x-4">
-                    <button data-modal-hide="editContactModal" type="button" class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10">
+                    <button type="button" data-modal-hide="editContactModal" class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10">
                         Batal
                     </button>
                     <button type="submit" class="text-white inline-flex items-center bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">
@@ -132,3 +132,27 @@
         </div>
     </div>
 </div>
+
+<script>
+// Ensure modals are initialized when this component loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize contact modals if not already done
+    if (!window.modalInstances) {
+        window.modalInstances = {};
+    }
+    
+    const contactModals = ['addContactModal', 'editContactModal'];
+    contactModals.forEach(modalId => {
+        const modalElement = document.getElementById(modalId);
+        if (modalElement && !window.modalInstances[modalId]) {
+            try {
+                const modalInstance = new Modal(modalElement);
+                window.modalInstances[modalId] = modalInstance;
+                console.log('Initialized contact modal:', modalId);
+            } catch (error) {
+                console.error('Error initializing modal:', modalId, error);
+            }
+        }
+    });
+});
+</script>

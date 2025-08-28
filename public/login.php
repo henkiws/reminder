@@ -1,9 +1,20 @@
 <?php
+// public/login.php - FIXED VERSION
 require_once '../config/database.php';
 require_once '../classes/AuthManager.php';
 
+// Enable error reporting for debugging (remove in production)
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 $database = new Database();
 $db = $database->getConnection();
+
+if (!$db) {
+    die("Database connection failed. Please check your configuration.");
+}
+
 $auth = new AuthManager($db);
 
 // Redirect if already logged in
@@ -14,17 +25,22 @@ if ($auth->isLoggedIn()) {
 
 $error = '';
 $success = '';
+$debug = '';
 
 // Handle login form submission
-if ($_POST && isset($_POST['action']) && $_POST['action'] === 'login') {
-    $username = $_POST['username'] ?? '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'login') {
+    $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
     $remember = isset($_POST['remember']);
+    
+    $debug .= "Login attempt - Username: $username<br>";
     
     if (empty($username) || empty($password)) {
         $error = 'Username dan password harus diisi';
     } else {
         $result = $auth->login($username, $password, $remember);
+        
+        $debug .= "Login result: " . print_r($result, true) . "<br>";
         
         if ($result['success']) {
             header('Location: index.php');
@@ -36,13 +52,13 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] === 'login') {
 }
 
 // Handle registration form submission
-if ($_POST && isset($_POST['action']) && $_POST['action'] === 'register') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'register') {
     $userData = [
-        'username' => $_POST['reg_username'] ?? '',
-        'email' => $_POST['reg_email'] ?? '',
+        'username' => trim($_POST['reg_username'] ?? ''),
+        'email' => trim($_POST['reg_email'] ?? ''),
         'password' => $_POST['reg_password'] ?? '',
-        'full_name' => $_POST['reg_full_name'] ?? '',
-        'role_id' => 3 // Default to User role
+        'full_name' => trim($_POST['reg_full_name'] ?? ''),
+        'role_id' => 4 // Default to User role
     ];
     
     $confirmPassword = $_POST['reg_confirm_password'] ?? '';
@@ -64,6 +80,16 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] === 'register') {
             $error = $result['error'];
         }
     }
+}
+
+// Debug mode - show password hash test (remove in production)
+$showDebug = isset($_GET['debug']) && $_GET['debug'] == '1';
+if ($showDebug) {
+    $debugInfo = $auth->testPasswordHash('admin123');
+    $debug .= "Password Hash Test:<br>";
+    $debug .= "Password: " . $debugInfo['password'] . "<br>";
+    $debug .= "Hash: " . $debugInfo['hash'] . "<br>";
+    $debug .= "Verify: " . ($debugInfo['verify'] ? 'TRUE' : 'FALSE') . "<br><br>";
 }
 ?>
 
@@ -113,6 +139,13 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] === 'register') {
                 </div>
             <?php endif; ?>
 
+            <?php if ($debug && $showDebug): ?>
+                <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative" role="alert">
+                    <strong>Debug Info:</strong><br>
+                    <?php echo $debug; ?>
+                </div>
+            <?php endif; ?>
+
             <!-- Login Form -->
             <form id="loginForm" class="space-y-6" method="POST">
                 <input type="hidden" name="action" value="login">
@@ -121,6 +154,7 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] === 'register') {
                     <label for="username" class="block text-sm font-medium text-gray-700">Username atau Email</label>
                     <div class="mt-1 relative">
                         <input id="username" name="username" type="text" required 
+                               value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>"
                                class="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-green-500 focus:border-green-500 focus:z-10 sm:text-sm" 
                                placeholder="Masukkan username atau email">
                         <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
@@ -175,6 +209,7 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] === 'register') {
                         <label for="reg_full_name" class="block text-sm font-medium text-gray-700">Nama Lengkap</label>
                         <div class="mt-1">
                             <input id="reg_full_name" name="reg_full_name" type="text" required 
+                                   value="<?php echo htmlspecialchars($_POST['reg_full_name'] ?? ''); ?>"
                                    class="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm" 
                                    placeholder="Masukkan nama lengkap">
                         </div>
@@ -184,6 +219,7 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] === 'register') {
                         <label for="reg_username" class="block text-sm font-medium text-gray-700">Username</label>
                         <div class="mt-1">
                             <input id="reg_username" name="reg_username" type="text" required 
+                                   value="<?php echo htmlspecialchars($_POST['reg_username'] ?? ''); ?>"
                                    class="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm" 
                                    placeholder="Pilih username unik">
                         </div>
@@ -193,6 +229,7 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] === 'register') {
                         <label for="reg_email" class="block text-sm font-medium text-gray-700">Email</label>
                         <div class="mt-1">
                             <input id="reg_email" name="reg_email" type="email" required 
+                                   value="<?php echo htmlspecialchars($_POST['reg_email'] ?? ''); ?>"
                                    class="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm" 
                                    placeholder="nama@example.com">
                         </div>
@@ -234,6 +271,10 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] === 'register') {
                     <div><strong>Admin:</strong> admin / admin123</div>
                     <div><strong>Manager:</strong> manager / admin123</div>
                     <div><strong>User:</strong> user1 / admin123</div>
+                </div>
+                <div class="mt-2 text-xs text-blue-600">
+                    <a href="?debug=1" class="underline">Enable Debug Mode</a> |
+                    <a href="debug.php" class="underline">System Debug</a>
                 </div>
             </div>
         </div>
@@ -277,6 +318,9 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] === 'register') {
                 regConfirmPassword.setCustomValidity('');
             }
         });
+
+        // Auto-focus on username field
+        document.getElementById('username').focus();
     </script>
 </body>
 </html>

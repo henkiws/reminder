@@ -301,6 +301,14 @@ BEGIN
 END;//
 DELIMITER ;
 
+ALTER TABLE scheduled_notifications 
+ADD COLUMN template_variables JSON COMMENT 'Template variable values as JSON' AFTER template_id;
+
+-- Update existing notifications to have empty template_variables
+UPDATE scheduled_notifications 
+SET template_variables = NULL 
+WHERE template_variables IS NULL;
+
 -- Create event to run cleanup daily (requires event scheduler to be enabled)
 -- SET GLOBAL event_scheduler = ON;
 -- CREATE EVENT daily_cleanup

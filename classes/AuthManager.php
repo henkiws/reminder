@@ -1,5 +1,5 @@
 <?php
-// classes/AuthManager.php
+// classes/AuthManager.php - FIXED VERSION
 class AuthManager {
     private $conn;
     
@@ -14,9 +14,12 @@ class AuthManager {
         }
     }
     
-    // Login user
+    // Login user - FIXED VERSION
     public function login($username, $password, $remember = false) {
         try {
+            // Debug: Log the login attempt
+            error_log("Login attempt for: " . $username);
+            
             $query = "SELECT u.*, r.name as role_name, r.permissions 
                       FROM users u 
                       JOIN roles r ON u.role_id = r.id 
@@ -26,7 +29,20 @@ class AuthManager {
             $stmt->execute([$username, $username]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            if ($user && password_verify($password, $user['password'])) {
+            // Debug: Check if user was found
+            if (!$user) {
+                error_log("User not found: " . $username);
+                return ['success' => false, 'error' => 'User not found or inactive'];
+            }
+            
+            error_log("User found: " . $user['username'] . ", checking password...");
+            error_log("Stored hash: " . $user['password']);
+            error_log("Input password: " . $password);
+            
+            // Verify password
+            if (password_verify($password, $user['password'])) {
+                error_log("Password verified successfully");
+                
                 // Update last login
                 $this->updateLastLogin($user['id']);
                 
@@ -41,16 +57,18 @@ class AuthManager {
                     'user' => $this->sanitizeUser($user)
                 ];
             } else {
+                error_log("Password verification failed");
                 $this->logActivity(null, 'login_failed', 'Failed login attempt for: ' . $username);
                 return ['success' => false, 'error' => 'Invalid credentials'];
             }
             
         } catch (Exception $e) {
+            error_log("Login error: " . $e->getMessage());
             return ['success' => false, 'error' => $e->getMessage()];
         }
     }
     
-    // Register new user
+    // Register new user - FIXED VERSION
     public function register($userData) {
         try {
             // Check if username or email already exists
@@ -62,15 +80,16 @@ class AuthManager {
                 return ['success' => false, 'error' => 'Username or email already exists'];
             }
             
-            // Hash password
+            // Hash password properly
             $hashedPassword = password_hash($userData['password'], PASSWORD_DEFAULT);
+            error_log("Registering user with hash: " . $hashedPassword);
             
             // Generate email verification token
             $verificationToken = bin2hex(random_bytes(32));
             
             // Insert user
-            $query = "INSERT INTO users (username, email, password, full_name, role_id, email_verification_token) 
-                      VALUES (?, ?, ?, ?, ?, ?)";
+            $query = "INSERT INTO users (username, email, password, full_name, role_id, email_verification_token, email_verified) 
+                      VALUES (?, ?, ?, ?, ?, ?, 1)"; // Set email_verified = 1 for demo
             
             $stmt = $this->conn->prepare($query);
             $result = $stmt->execute([
@@ -78,7 +97,7 @@ class AuthManager {
                 $userData['email'],
                 $hashedPassword,
                 $userData['full_name'],
-                $userData['role_id'] ?? 3, // Default to User role
+                $userData['role_id'] ?? 4, // Default to User role (id=4)
                 $verificationToken
             ]);
             
@@ -96,18 +115,26 @@ class AuthManager {
             }
             
         } catch (Exception $e) {
+            error_log("Registration error: " . $e->getMessage());
             return ['success' => false, 'error' => $e->getMessage()];
         }
     }
     
-    // Create user session
+    // Create user session - FIXED VERSION
     private function createSession($user, $remember = false) {
+        // Clear any existing session data
+        session_regenerate_id(true);
+        
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['username'] = $user['username'];
         $_SESSION['full_name'] = $user['full_name'];
         $_SESSION['role_name'] = $user['role_name'];
-        $_SESSION['permissions'] = json_decode($user['permissions'], true);
+        $_SESSION['permissions'] = json_decode($user['permissions'], true) ?? [];
         $_SESSION['logged_in'] = true;
+        $_SESSION['login_time'] = time();
+        
+        error_log("Session created for user: " . $user['username']);
+        error_log("Session data: " . print_r($_SESSION, true));
         
         // Create session token for database tracking
         $sessionToken = bin2hex(random_bytes(32));
@@ -118,38 +145,78 @@ class AuthManager {
             date('Y-m-d H:i:s', strtotime('+24 hours'));
         
         // Store session in database
-        $query = "INSERT INTO user_sessions (user_id, session_token, ip_address, user_agent, expires_at) 
-                  VALUES (?, ?, ?, ?, ?)";
-        $stmt = $this->conn->prepare($query);
-        $stmt->execute([
-            $user['id'],
-            $sessionToken,
-            $_SERVER['REMOTE_ADDR'] ?? null,
-            $_SERVER['HTTP_USER_AGENT'] ?? null,
-            $expiresAt
-        ]);
+        try {
+            $query = "INSERT INTO user_sessions (user_id, session_token, ip_address, user_agent, expires_at) 
+                      VALUES (?, ?, ?, ?, ?)";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute([
+                $user['id'],
+                $sessionToken,
+                $_SERVER['REMOTE_ADDR'] ?? null,
+                $_SERVER['HTTP_USER_AGENT'] ?? null,
+                $expiresAt
+            ]);
+        } catch (Exception $e) {
+            error_log("Failed to store session in database: " . $e->getMessage());
+        }
         
         // Set remember me cookie if requested
         if ($remember) {
-            setcookie('remember_token', $sessionToken, strtotime('+30 days'), '/', '', true, true);
+            setcookie('remember_token', $sessionToken, strtotime('+30 days'), '/', '', false, true);
         }
     }
     
-    // Check if user is logged in
+    // Check if user is logged in - FIXED VERSION
     public function isLoggedIn() {
-        // Debug: Clear any corrupted session data
+        // Start session if not already started
+        if (session_status() == PHP_SESSION_NONE) {
+            $this->startSession();
+        }
+        
+        // Debug current session
+        error_log("Checking login status. Session data: " . print_r($_SESSION, true));
+        
         if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
+            error_log("No logged_in flag in session");
             return false;
         }
         
         if (!isset($_SESSION['user_id']) || empty($_SESSION['user_id'])) {
+            error_log("No user_id in session");
             return false;
+        }
+        
+        // Check if session has expired (24 hour default)
+        if (isset($_SESSION['login_time'])) {
+            $sessionAge = time() - $_SESSION['login_time'];
+            if ($sessionAge > (24 * 60 * 60)) { // 24 hours
+                error_log("Session expired");
+                $this->logout();
+                return false;
+            }
+        }
+        
+        // Verify session is still valid in database (optional but recommended)
+        if (isset($_SESSION['session_token'])) {
+            try {
+                $query = "SELECT id FROM user_sessions WHERE session_token = ? AND expires_at > NOW()";
+                $stmt = $this->conn->prepare($query);
+                $stmt->execute([$_SESSION['session_token']]);
+                if ($stmt->rowCount() == 0) {
+                    error_log("Session token not found in database or expired");
+                    $this->logout();
+                    return false;
+                }
+            } catch (Exception $e) {
+                error_log("Error checking session in database: " . $e->getMessage());
+                // Don't logout on database errors, just continue
+            }
         }
         
         return true;
     }
     
-    // Get current user
+    // Get current user - FIXED VERSION
     public function getCurrentUser() {
         if (!$this->isLoggedIn()) {
             return null;
@@ -160,7 +227,7 @@ class AuthManager {
             'username' => $_SESSION['username'],
             'full_name' => $_SESSION['full_name'],
             'role_name' => $_SESSION['role_name'],
-            'permissions' => $_SESSION['permissions']
+            'permissions' => $_SESSION['permissions'] ?? []
         ];
     }
     
@@ -174,13 +241,17 @@ class AuthManager {
         return in_array($permission, $permissions);
     }
     
-    // Logout user
+    // Logout user - FIXED VERSION
     public function logout() {
         if (isset($_SESSION['session_token'])) {
             // Remove session from database
-            $query = "DELETE FROM user_sessions WHERE session_token = ?";
-            $stmt = $this->conn->prepare($query);
-            $stmt->execute([$_SESSION['session_token']]);
+            try {
+                $query = "DELETE FROM user_sessions WHERE session_token = ?";
+                $stmt = $this->conn->prepare($query);
+                $stmt->execute([$_SESSION['session_token']]);
+            } catch (Exception $e) {
+                error_log("Error deleting session from database: " . $e->getMessage());
+            }
         }
         
         if (isset($_SESSION['user_id'])) {
@@ -188,18 +259,32 @@ class AuthManager {
         }
         
         // Clear session
-        session_unset();
+        $_SESSION = array();
+        
+        // Destroy session cookie
+        if (ini_get("session.use_cookies")) {
+            $params = session_get_cookie_params();
+            setcookie(session_name(), '', time() - 42000,
+                $params["path"], $params["domain"],
+                $params["secure"], $params["httponly"]
+            );
+        }
+        
         session_destroy();
         
         // Clear remember me cookie
-        setcookie('remember_token', '', time() - 3600, '/', '', true, true);
+        setcookie('remember_token', '', time() - 3600, '/', '', false, true);
     }
     
     // Update last login
     private function updateLastLogin($userId) {
-        $query = "UPDATE users SET last_login = NOW() WHERE id = ?";
-        $stmt = $this->conn->prepare($query);
-        $stmt->execute([$userId]);
+        try {
+            $query = "UPDATE users SET last_login = NOW() WHERE id = ?";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute([$userId]);
+        } catch (Exception $e) {
+            error_log("Error updating last login: " . $e->getMessage());
+        }
     }
     
     // Sanitize user data (remove sensitive info)
@@ -212,16 +297,20 @@ class AuthManager {
     
     // Log user activity
     public function logActivity($userId, $action, $description = null) {
-        $query = "INSERT INTO activity_logs (user_id, action, description, ip_address, user_agent) 
-                  VALUES (?, ?, ?, ?, ?)";
-        $stmt = $this->conn->prepare($query);
-        $stmt->execute([
-            $userId,
-            $action,
-            $description,
-            $_SERVER['REMOTE_ADDR'] ?? null,
-            $_SERVER['HTTP_USER_AGENT'] ?? null
-        ]);
+        try {
+            $query = "INSERT INTO activity_logs (user_id, action, description, ip_address, user_agent) 
+                      VALUES (?, ?, ?, ?, ?)";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute([
+                $userId,
+                $action,
+                $description,
+                $_SERVER['REMOTE_ADDR'] ?? null,
+                $_SERVER['HTTP_USER_AGENT'] ?? null
+            ]);
+        } catch (Exception $e) {
+            error_log("Error logging activity: " . $e->getMessage());
+        }
     }
     
     // Get all users (admin only)
@@ -230,209 +319,45 @@ class AuthManager {
             return ['success' => false, 'error' => 'Permission denied'];
         }
         
-        $query = "SELECT u.id, u.username, u.email, u.full_name, u.is_active, u.last_login, 
-                         u.created_at, r.name as role_name 
-                  FROM users u 
-                  JOIN roles r ON u.role_id = r.id 
-                  ORDER BY u.created_at DESC";
-        
-        $stmt = $this->conn->prepare($query);
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        try {
+            $query = "SELECT u.id, u.username, u.email, u.full_name, u.is_active, u.last_login, 
+                             u.created_at, r.name as role_name 
+                      FROM users u 
+                      JOIN roles r ON u.role_id = r.id 
+                      ORDER BY u.created_at DESC";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {
+            error_log("Error getting users: " . $e->getMessage());
+            return [];
+        }
     }
     
     // Get all roles
     public function getAllRoles() {
-        $query = "SELECT * FROM roles ORDER BY id";
-        $stmt = $this->conn->prepare($query);
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-    
-    // Create new user (admin only)
-    public function createUser($userData) {
-        if (!$this->hasPermission('user.create')) {
-            return ['success' => false, 'error' => 'Permission denied'];
-        }
-        
-        return $this->register($userData);
-    }
-    
-    // Update user (admin only or own profile)
-    public function updateUser($userId, $userData) {
-        $currentUser = $this->getCurrentUser();
-        
-        if (!$this->hasPermission('user.update') && $currentUser['id'] != $userId) {
-            return ['success' => false, 'error' => 'Permission denied'];
-        }
-        
         try {
-            $fields = [];
-            $values = [];
-            
-            if (!empty($userData['email'])) {
-                $fields[] = 'email = ?';
-                $values[] = $userData['email'];
-            }
-            
-            if (!empty($userData['full_name'])) {
-                $fields[] = 'full_name = ?';
-                $values[] = $userData['full_name'];
-            }
-            
-            if (!empty($userData['password'])) {
-                $fields[] = 'password = ?';
-                $values[] = password_hash($userData['password'], PASSWORD_DEFAULT);
-            }
-            
-            if (isset($userData['is_active']) && $this->hasPermission('user.update')) {
-                $fields[] = 'is_active = ?';
-                $values[] = $userData['is_active'];
-            }
-            
-            if (isset($userData['role_id']) && $this->hasPermission('user.update')) {
-                $fields[] = 'role_id = ?';
-                $values[] = $userData['role_id'];
-            }
-            
-            if (empty($fields)) {
-                return ['success' => false, 'error' => 'No fields to update'];
-            }
-            
-            $values[] = $userId;
-            
-            $query = "UPDATE users SET " . implode(', ', $fields) . " WHERE id = ?";
+            $query = "SELECT * FROM roles ORDER BY id";
             $stmt = $this->conn->prepare($query);
-            $result = $stmt->execute($values);
-            
-            if ($result) {
-                $this->logActivity($currentUser['id'], 'user_update', 'Updated user ID: ' . $userId);
-                return ['success' => true];
-            } else {
-                return ['success' => false, 'error' => 'Failed to update user'];
-            }
-            
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (Exception $e) {
-            return ['success' => false, 'error' => $e->getMessage()];
+            error_log("Error getting roles: " . $e->getMessage());
+            return [];
         }
     }
     
-    // Delete user (admin only)
-    public function deleteUser($userId) {
-        if (!$this->hasPermission('user.delete')) {
-            return ['success' => false, 'error' => 'Permission denied'];
-        }
+    // Test method to verify password hashing
+    public function testPasswordHash($password) {
+        $hash = password_hash($password, PASSWORD_DEFAULT);
+        $verify = password_verify($password, $hash);
         
-        $currentUser = $this->getCurrentUser();
-        if ($currentUser['id'] == $userId) {
-            return ['success' => false, 'error' => 'Cannot delete your own account'];
-        }
-        
-        try {
-            // Soft delete - just deactivate
-            $query = "UPDATE users SET is_active = 0 WHERE id = ?";
-            $stmt = $this->conn->prepare($query);
-            $result = $stmt->execute([$userId]);
-            
-            if ($result) {
-                $this->logActivity($currentUser['id'], 'user_delete', 'Deleted user ID: ' . $userId);
-                return ['success' => true];
-            } else {
-                return ['success' => false, 'error' => 'Failed to delete user'];
-            }
-            
-        } catch (Exception $e) {
-            return ['success' => false, 'error' => $e->getMessage()];
-        }
-    }
-    
-    // Clean expired sessions
-    public function cleanExpiredSessions() {
-        $query = "DELETE FROM user_sessions WHERE expires_at < NOW()";
-        $stmt = $this->conn->prepare($query);
-        return $stmt->execute();
-    }
-    
-    // Get user activity logs
-    public function getUserActivityLogs($userId = null, $limit = 100) {
-        if (!$this->hasPermission('log.read')) {
-            return ['success' => false, 'error' => 'Permission denied'];
-        }
-        
-        if ($userId) {
-            $query = "SELECT al.*, u.username, u.full_name 
-                      FROM activity_logs al 
-                      LEFT JOIN users u ON al.user_id = u.id 
-                      WHERE al.user_id = ? 
-                      ORDER BY al.created_at DESC 
-                      LIMIT ?";
-            $stmt = $this->conn->prepare($query);
-            $stmt->execute([$userId, $limit]);
-        } else {
-            $query = "SELECT al.*, u.username, u.full_name 
-                      FROM activity_logs al 
-                      LEFT JOIN users u ON al.user_id = u.id 
-                      ORDER BY al.created_at DESC 
-                      LIMIT ?";
-            $stmt = $this->conn->prepare($query);
-            $stmt->execute([$limit]);
-        }
-        
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-    
-    // Password reset request
-    public function requestPasswordReset($email) {
-        try {
-            $query = "SELECT id FROM users WHERE email = ? AND is_active = 1";
-            $stmt = $this->conn->prepare($query);
-            $stmt->execute([$email]);
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if ($user) {
-                $token = bin2hex(random_bytes(32));
-                $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
-                
-                $query = "UPDATE users SET password_reset_token = ?, password_reset_expires = ? WHERE id = ?";
-                $stmt = $this->conn->prepare($query);
-                $stmt->execute([$token, $expires, $user['id']]);
-                
-                return ['success' => true, 'token' => $token];
-            } else {
-                return ['success' => false, 'error' => 'Email not found'];
-            }
-            
-        } catch (Exception $e) {
-            return ['success' => false, 'error' => $e->getMessage()];
-        }
-    }
-    
-    // Reset password
-    public function resetPassword($token, $newPassword) {
-        try {
-            $query = "SELECT id FROM users WHERE password_reset_token = ? AND password_reset_expires > NOW()";
-            $stmt = $this->conn->prepare($query);
-            $stmt->execute([$token]);
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if ($user) {
-                $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
-                
-                $query = "UPDATE users SET password = ?, password_reset_token = NULL, password_reset_expires = NULL WHERE id = ?";
-                $stmt = $this->conn->prepare($query);
-                $result = $stmt->execute([$hashedPassword, $user['id']]);
-                
-                if ($result) {
-                    $this->logActivity($user['id'], 'password_reset', 'Password reset completed');
-                    return ['success' => true];
-                }
-            }
-            
-            return ['success' => false, 'error' => 'Invalid or expired token'];
-            
-        } catch (Exception $e) {
-            return ['success' => false, 'error' => $e->getMessage()];
-        }
+        return [
+            'password' => $password,
+            'hash' => $hash,
+            'verify' => $verify
+        ];
     }
 }
 ?>

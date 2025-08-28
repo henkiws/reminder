@@ -728,3 +728,439 @@ function initializeTabHandling() {
         });
     });
 }
+
+// Global modal instances storage
+window.modalInstances = {};
+
+// Initialize all modals when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    initializeAllModals();
+    initializeFormHandlers();
+    initializeTemplateSelector();
+    initializeSendToTypeHandler();
+    initializeRepeatOptions();
+    setDefaultDateTime();
+    initializePhoneFormatting();
+    initializeTabHandling();
+});
+
+// Function to initialize all modals
+function initializeAllModals() {
+    // List of all modal IDs used in the system
+    const modalIds = [
+        'addContactModal',
+        'editContactModal', 
+        'addGroupModal',
+        'editGroupModal',
+        'addUserModal',
+        'editUserModal',
+        'userActivityModal',
+        'previewModal',
+        'successModal',
+        'errorModal'
+    ];
+    
+    modalIds.forEach(modalId => {
+        const modalElement = document.getElementById(modalId);
+        if (modalElement) {
+            // Initialize Flowbite modal
+            const modalInstance = new Modal(modalElement, {
+                backdrop: 'dynamic',
+                backdropClasses: 'bg-gray-900 bg-opacity-50 dark:bg-opacity-80 fixed inset-0 z-40',
+                closable: true,
+                onHide: () => {
+                    console.log('Modal ' + modalId + ' is hidden');
+                },
+                onShow: () => {
+                    console.log('Modal ' + modalId + ' is shown');
+                }
+            });
+            
+            // Store instance for later use
+            window.modalInstances[modalId] = modalInstance;
+            console.log('Initialized modal:', modalId);
+        } else {
+            console.warn('Modal element not found:', modalId);
+        }
+    });
+}
+
+// Improved modal show function
+function showModal(modalId) {
+    console.log('Attempting to show modal:', modalId);
+    
+    // Try to get existing instance
+    let modalInstance = window.modalInstances[modalId];
+    
+    // If no instance exists, try to create one
+    if (!modalInstance) {
+        const modalElement = document.getElementById(modalId);
+        if (modalElement) {
+            modalInstance = new Modal(modalElement);
+            window.modalInstances[modalId] = modalInstance;
+            console.log('Created new modal instance for:', modalId);
+        } else {
+            console.error('Modal element not found:', modalId);
+            return false;
+        }
+    }
+    
+    try {
+        modalInstance.show();
+        return true;
+    } catch (error) {
+        console.error('Error showing modal:', modalId, error);
+        return false;
+    }
+}
+
+// Improved modal hide function
+function hideModal(modalId) {
+    console.log('Attempting to hide modal:', modalId);
+    
+    const modalInstance = window.modalInstances[modalId];
+    if (modalInstance) {
+        try {
+            modalInstance.hide();
+            return true;
+        } catch (error) {
+            console.error('Error hiding modal:', modalId, error);
+            return false;
+        }
+    } else {
+        console.warn('Modal instance not found:', modalId);
+        // Fallback: try to hide by manipulating classes directly
+        const modalElement = document.getElementById(modalId);
+        if (modalElement) {
+            modalElement.classList.add('hidden');
+            modalElement.style.display = 'none';
+            
+            // Remove backdrop if it exists
+            const backdrop = document.querySelector('[modal-backdrop]');
+            if (backdrop) {
+                backdrop.remove();
+            }
+            
+            // Re-enable body scroll
+            document.body.classList.remove('overflow-hidden');
+            return true;
+        }
+        return false;
+    }
+}
+
+// Fixed contact management functions
+function editContact(id, name, phone) {
+    console.log('Edit contact called:', id, name, phone);
+    
+    // Fill form data
+    const idField = document.getElementById('edit_contact_id');
+    const nameField = document.getElementById('edit_contact_name');
+    const phoneField = document.getElementById('edit_contact_phone');
+    
+    if (idField) idField.value = id;
+    if (nameField) nameField.value = name;
+    if (phoneField) phoneField.value = phone;
+    
+    // Show modal
+    showModal('editContactModal');
+}
+
+function editGroup(id, name, groupId, description) {
+    console.log('Edit group called:', id, name, groupId, description);
+    
+    // Fill form data
+    const idField = document.getElementById('edit_group_id');
+    const nameField = document.getElementById('edit_group_name');
+    const groupIdField = document.getElementById('edit_group_group_id');
+    const descField = document.getElementById('edit_group_description');
+    
+    if (idField) idField.value = id;
+    if (nameField) nameField.value = name;
+    if (groupIdField) groupIdField.value = groupId;
+    if (descField) descField.value = description || '';
+    
+    // Show modal
+    showModal('editGroupModal');
+}
+
+function editUser(id, fullName, email, username, isActive) {
+    console.log('Edit user called:', id, fullName, email, username, isActive);
+    
+    // Fill form data
+    const idField = document.getElementById('edit_user_id');
+    const nameField = document.getElementById('edit_user_full_name');
+    const emailField = document.getElementById('edit_user_email');
+    const usernameField = document.getElementById('edit_user_username');
+    const activeField = document.getElementById('edit_user_active');
+    
+    if (idField) idField.value = id;
+    if (nameField) nameField.value = fullName;
+    if (emailField) emailField.value = email;
+    if (usernameField) usernameField.value = username;
+    if (activeField) activeField.checked = isActive;
+    
+    // Show modal
+    showModal('editUserModal');
+}
+
+// Fixed form submission handlers
+function handleEditContact(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    
+    console.log('Submitting contact edit:', data);
+    
+    // Show loading state
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Menyimpan...';
+    
+    fetch('api.php/contact', {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showSuccess('Kontak berhasil diperbarui');
+            hideModal('editContactModal');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showError('Gagal memperbarui kontak: ' + (result.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showError('Terjadi kesalahan sistem');
+    })
+    .finally(() => {
+        // Restore button
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+    });
+}
+
+function handleEditGroup(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    
+    console.log('Submitting group edit:', data);
+    
+    // Show loading state
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Menyimpan...';
+    
+    fetch('api.php/group', {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showSuccess('Grup berhasil diperbarui');
+            hideModal('editGroupModal');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showError('Gagal memperbarui grup: ' + (result.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showError('Terjadi kesalahan sistem');
+    })
+    .finally(() => {
+        // Restore button
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+    });
+}
+
+// Initialize form handlers with proper modal management
+function initializeFormHandlers() {
+    // Contact forms
+    const addContactForm = document.getElementById('addContactForm');
+    if (addContactForm) {
+        addContactForm.addEventListener('submit', handleAddContact);
+    }
+    
+    const editContactForm = document.getElementById('editContactForm');
+    if (editContactForm) {
+        editContactForm.addEventListener('submit', handleEditContact);
+    }
+    
+    // Group forms
+    const addGroupForm = document.getElementById('addGroupForm');
+    if (addGroupForm) {
+        addGroupForm.addEventListener('submit', handleAddGroup);
+    }
+    
+    const editGroupForm = document.getElementById('editGroupForm');
+    if (editGroupForm) {
+        editGroupForm.addEventListener('submit', handleEditGroup);
+    }
+    
+    // User forms (if available)
+    const addUserForm = document.getElementById('addUserForm');
+    if (addUserForm) {
+        addUserForm.addEventListener('submit', handleAddUser);
+    }
+    
+    const editUserForm = document.getElementById('editUserForm');
+    if (editUserForm) {
+        editUserForm.addEventListener('submit', handleEditUser);
+    }
+    
+    // Notification form
+    const notificationForm = document.getElementById('notificationForm');
+    if (notificationForm) {
+        notificationForm.addEventListener('submit', handleNotificationSubmit);
+    }
+}
+
+// Fixed success/error message functions
+function showSuccess(message) {
+    console.log('Showing success message:', message);
+    
+    const messageElement = document.getElementById('successMessage');
+    if (messageElement) {
+        messageElement.textContent = message;
+        showModal('successModal');
+    } else {
+        // Fallback to alert
+        alert('Success: ' + message);
+    }
+}
+
+function showError(message) {
+    console.log('Showing error message:', message);
+    
+    const messageElement = document.getElementById('errorMessage');
+    if (messageElement) {
+        messageElement.textContent = message;
+        showModal('errorModal');
+    } else {
+        // Fallback to alert
+        alert('Error: ' + message);
+    }
+}
+
+// Add event listeners for modal close buttons
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle close buttons with data-modal-hide attribute
+    document.querySelectorAll('[data-modal-hide]').forEach(button => {
+        button.addEventListener('click', function() {
+            const modalId = this.getAttribute('data-modal-hide');
+            hideModal(modalId);
+        });
+    });
+    
+    // Handle backdrop clicks to close modals
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('fixed') && e.target.classList.contains('inset-0')) {
+            // Check if this is a modal backdrop
+            const modal = e.target.querySelector('[role="dialog"]') || e.target.closest('[role="dialog"]');
+            if (modal) {
+                const modalId = modal.id;
+                if (modalId) {
+                    hideModal(modalId);
+                }
+            }
+        }
+    });
+    
+    // Handle ESC key to close modals
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            // Find and close the topmost modal
+            for (const modalId in window.modalInstances) {
+                const modalElement = document.getElementById(modalId);
+                if (modalElement && !modalElement.classList.contains('hidden')) {
+                    hideModal(modalId);
+                    break;
+                }
+            }
+        }
+    });
+});
+
+// Delete functions with proper confirmation
+function deleteContact(id) {
+    if (confirm('Apakah Anda yakin ingin menghapus kontak ini?')) {
+        console.log('Deleting contact:', id);
+        
+        fetch(`api.php/contact/${id}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showSuccess('Kontak berhasil dihapus');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showError('Gagal menghapus kontak: ' + (result.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showError('Terjadi kesalahan sistem');
+        });
+    }
+}
+
+function deleteGroup(id) {
+    if (confirm('Apakah Anda yakin ingin menghapus grup ini?')) {
+        console.log('Deleting group:', id);
+        
+        fetch(`api.php/group/${id}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showSuccess('Grup berhasil dihapus');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showError('Gagal menghapus grup: ' + (result.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showError('Terjadi kesalahan sistem');
+        });
+    }
+}
+
+// Debug function to check modal states
+function debugModals() {
+    console.log('=== Modal Debug Info ===');
+    console.log('Available modal instances:', Object.keys(window.modalInstances));
+    
+    Object.keys(window.modalInstances).forEach(modalId => {
+        const element = document.getElementById(modalId);
+        const instance = window.modalInstances[modalId];
+        console.log(`${modalId}:`, {
+            element: !!element,
+            instance: !!instance,
+            visible: element ? !element.classList.contains('hidden') : false
+        });
+    });
+}
+
+// Make debug function available globally
+window.debugModals = debugModals;
+
+console.log('Modal management system loaded successfully');

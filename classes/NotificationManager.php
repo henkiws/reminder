@@ -11,60 +11,6 @@ class NotificationManager {
         $this->whatsapp = new WhatsAppAPI($database);
     }
 
-    // Membuat notifikasi baru dengan user context
-    public function createNotification($data) {
-        try {
-            $this->conn->beginTransaction();
-
-            $query = "INSERT INTO scheduled_notifications 
-                     (title, message, template_id, send_to_type, scheduled_datetime, 
-                      repeat_type, repeat_interval, repeat_until, created_by, user_id) 
-                     VALUES (:title, :message, :template_id, :send_to_type, :scheduled_datetime,
-                             :repeat_type, :repeat_interval, :repeat_until, :created_by, :user_id)";
-            
-            $stmt = $this->conn->prepare($query);
-            $stmt->execute([
-                ':title' => $data['title'],
-                ':message' => $data['message'],
-                ':template_id' => $data['template_id'] ?? null,
-                ':send_to_type' => $data['send_to_type'],
-                ':scheduled_datetime' => $data['scheduled_datetime'],
-                ':repeat_type' => $data['repeat_type'] ?? 'once',
-                ':repeat_interval' => $data['repeat_interval'] ?? 1,
-                ':repeat_until' => $data['repeat_until'] ?? null,
-                ':created_by' => $data['created_by'] ?? 'system',
-                ':user_id' => $data['user_id'] ?? null
-            ]);
-
-            $notification_id = $this->conn->lastInsertId();
-
-            // Tambahkan kontak jika ada
-            if (!empty($data['contacts'])) {
-                foreach ($data['contacts'] as $contact_id) {
-                    $query = "INSERT INTO notification_contacts (notification_id, contact_id) VALUES (?, ?)";
-                    $stmt = $this->conn->prepare($query);
-                    $stmt->execute([$notification_id, $contact_id]);
-                }
-            }
-
-            // Tambahkan grup jika ada
-            if (!empty($data['groups'])) {
-                foreach ($data['groups'] as $group_id) {
-                    $query = "INSERT INTO notification_groups (notification_id, group_id) VALUES (?, ?)";
-                    $stmt = $this->conn->prepare($query);
-                    $stmt->execute([$notification_id, $group_id]);
-                }
-            }
-
-            $this->conn->commit();
-            return ['success' => true, 'id' => $notification_id];
-
-        } catch (Exception $e) {
-            $this->conn->rollback();
-            return ['success' => false, 'error' => $e->getMessage()];
-        }
-    }
-
     // Mengirim notifikasi yang sudah terjadwal
     public function sendScheduledNotifications() {
         $query = "SELECT * FROM scheduled_notifications 
@@ -81,82 +27,6 @@ class NotificationManager {
         }
 
         return $results;
-    }
-
-    // Mengirim satu notifikasi
-    public function sendNotification($notification_id) {
-        try {
-            // Ambil data notifikasi
-            $query = "SELECT * FROM scheduled_notifications WHERE id = ?";
-            $stmt = $this->conn->prepare($query);
-            $stmt->execute([$notification_id]);
-            $notification = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if (!$notification) {
-                throw new Exception("Notification not found");
-            }
-
-            $success_count = 0;
-            $fail_count = 0;
-
-            // Kirim ke kontak
-            if ($notification['send_to_type'] == 'contact' || $notification['send_to_type'] == 'both') {
-                $contacts = $this->getNotificationContacts($notification_id);
-                foreach ($contacts as $contact) {
-                    $result = $this->whatsapp->sendMessage($contact['phone'], $notification['message']);
-                    
-                    // Log hasil pengiriman
-                    $this->logMessage($notification_id, 'contact', $contact['id'], 
-                                    $contact['phone'], $notification['message'], 
-                                    $result['response'], $result['success'] ? 'success' : 'failed');
-                    
-                    if ($result['success']) {
-                        $success_count++;
-                    } else {
-                        $fail_count++;
-                    }
-                }
-            }
-
-            // Kirim ke grup
-            if ($notification['send_to_type'] == 'group' || $notification['send_to_type'] == 'both') {
-                $groups = $this->getNotificationGroups($notification_id);
-                foreach ($groups as $group) {
-                    $result = $this->whatsapp->sendMessage($group['group_id'], $notification['message'], true);
-                    
-                    // Log hasil pengiriman
-                    $this->logMessage($notification_id, 'group', $group['id'], 
-                                    $group['group_id'], $notification['message'], 
-                                    $result['response'], $result['success'] ? 'success' : 'failed');
-                    
-                    if ($result['success']) {
-                        $success_count++;
-                    } else {
-                        $fail_count++;
-                    }
-                }
-            }
-
-            // Update status notifikasi
-            $status = $fail_count == 0 ? 'sent' : ($success_count == 0 ? 'failed' : 'sent');
-            $this->updateNotificationStatus($notification_id, $status);
-
-            // Jika ada pengulangan, buat notifikasi berikutnya
-            if ($notification['repeat_type'] != 'once') {
-                $this->scheduleNextRepeat($notification);
-            }
-
-            return [
-                'success' => true, 
-                'sent' => $success_count, 
-                'failed' => $fail_count,
-                'notification_id' => $notification_id
-            ];
-
-        } catch (Exception $e) {
-            $this->updateNotificationStatus($notification_id, 'failed');
-            return ['success' => false, 'error' => $e->getMessage()];
-        }
     }
 
     private function getNotificationContacts($notification_id) {
@@ -253,14 +123,6 @@ class NotificationManager {
                   SELECT ?, group_id FROM notification_groups WHERE notification_id = ?";
         $stmt = $this->conn->prepare($query);
         $stmt->execute([$new_id, $old_id]);
-    }
-
-    // Template processing
-    public function processTemplate($template, $variables) {
-        foreach ($variables as $key => $value) {
-            $template = str_replace('{' . $key . '}', $value, $template);
-        }
-        return $template;
     }
 
     // Get all notifications with user filtering
@@ -414,6 +276,184 @@ class NotificationManager {
             $stmt->execute([$limit]);
         }
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function createNotification($data) {
+        try {
+            $this->conn->beginTransaction();
+
+            $query = "INSERT INTO scheduled_notifications 
+                    (title, message, template_id, template_variables, send_to_type, scheduled_datetime, 
+                    repeat_type, repeat_interval, repeat_until, created_by, user_id) 
+                    VALUES (:title, :message, :template_id, :template_variables, :send_to_type, :scheduled_datetime,
+                            :repeat_type, :repeat_interval, :repeat_until, :created_by, :user_id)";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute([
+                ':title' => $data['title'],
+                ':message' => $data['message'],
+                ':template_id' => $data['template_id'] ?? null,
+                ':template_variables' => $data['template_variables'] ?? null, // Store as JSON
+                ':send_to_type' => $data['send_to_type'],
+                ':scheduled_datetime' => $data['scheduled_datetime'],
+                ':repeat_type' => $data['repeat_type'] ?? 'once',
+                ':repeat_interval' => $data['repeat_interval'] ?? 1,
+                ':repeat_until' => $data['repeat_until'] ?? null,
+                ':created_by' => $data['created_by'] ?? 'system',
+                ':user_id' => $data['user_id'] ?? null
+            ]);
+
+            $notification_id = $this->conn->lastInsertId();
+
+            // Add contacts and groups (existing code)
+            if (!empty($data['contacts'])) {
+                foreach ($data['contacts'] as $contact_id) {
+                    $query = "INSERT INTO notification_contacts (notification_id, contact_id) VALUES (?, ?)";
+                    $stmt = $this->conn->prepare($query);
+                    $stmt->execute([$notification_id, $contact_id]);
+                }
+            }
+
+            if (!empty($data['groups'])) {
+                foreach ($data['groups'] as $group_id) {
+                    $query = "INSERT INTO notification_groups (notification_id, group_id) VALUES (?, ?)";
+                    $stmt = $this->conn->prepare($query);
+                    $stmt->execute([$notification_id, $group_id]);
+                }
+            }
+
+            $this->conn->commit();
+            return ['success' => true, 'id' => $notification_id];
+
+        } catch (Exception $e) {
+            $this->conn->rollback();
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    public function sendNotification($notification_id) {
+        try {
+            // Get notification data
+            $query = "SELECT * FROM scheduled_notifications WHERE id = ?";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute([$notification_id]);
+            $notification = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$notification) {
+                throw new Exception("Notification not found");
+            }
+
+            $success_count = 0;
+            $fail_count = 0;
+
+            // Parse template variables if they exist
+            $templateVars = [];
+            if (!empty($notification['template_variables'])) {
+                $templateVars = json_decode($notification['template_variables'], true) ?? [];
+            }
+
+            // Send to contacts
+            if ($notification['send_to_type'] == 'contact' || $notification['send_to_type'] == 'both') {
+                $contacts = $this->getNotificationContacts($notification_id);
+                foreach ($contacts as $contact) {
+                    // Process template for each contact
+                    $personalizedMessage = $this->processTemplateForContact($notification['message'], $templateVars, $contact);
+                    
+                    $result = $this->whatsapp->sendMessage($contact['phone'], $personalizedMessage);
+                    
+                    $this->logMessage($notification_id, 'contact', $contact['id'], 
+                                    $contact['phone'], $personalizedMessage, 
+                                    $result['response'], $result['success'] ? 'success' : 'failed');
+                    
+                    if ($result['success']) {
+                        $success_count++;
+                    } else {
+                        $fail_count++;
+                    }
+                }
+            }
+
+            // Send to groups
+            if ($notification['send_to_type'] == 'group' || $notification['send_to_type'] == 'both') {
+                $groups = $this->getNotificationGroups($notification_id);
+                foreach ($groups as $group) {
+                    // Process template for group (no personalization for groups)
+                    $processedMessage = $this->processTemplate($notification['message'], $templateVars);
+                    
+                    $result = $this->whatsapp->sendMessage($group['group_id'], $processedMessage, true);
+                    
+                    $this->logMessage($notification_id, 'group', $group['id'], 
+                                    $group['group_id'], $processedMessage, 
+                                    $result['response'], $result['success'] ? 'success' : 'failed');
+                    
+                    if ($result['success']) {
+                        $success_count++;
+                    } else {
+                        $fail_count++;
+                    }
+                }
+            }
+
+            // Update notification status
+            $status = $fail_count == 0 ? 'sent' : ($success_count == 0 ? 'failed' : 'sent');
+            $this->updateNotificationStatus($notification_id, $status);
+
+            // Handle repeating notifications
+            if ($notification['repeat_type'] != 'once') {
+                $this->scheduleNextRepeat($notification);
+            }
+
+            return [
+                'success' => true, 
+                'sent' => $success_count, 
+                'failed' => $fail_count,
+                'notification_id' => $notification_id
+            ];
+
+        } catch (Exception $e) {
+            $this->updateNotificationStatus($notification_id, 'failed');
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    // Enhanced template processing with contact personalization
+    public function processTemplateForContact($template, $variables, $contact) {
+        // Add contact-specific variables
+        $contactVars = array_merge($variables, [
+            'name' => $contact['name'],
+            // Add other contact-specific data if available
+        ]);
+        
+        return $this->processTemplate($template, $contactVars);
+    }
+
+    // Enhanced template processing
+    public function processTemplate($template, $variables) {
+        // Add default variables if not provided
+        $defaultVars = [
+            'date' => date('d/m/Y'),
+            'time' => date('H:i'),
+        ];
+        
+        $allVariables = array_merge($defaultVars, $variables);
+        
+        foreach ($allVariables as $key => $value) {
+            $template = str_replace('{' . $key . '}', $value, $template);
+        }
+        
+        return $template;
+    }
+
+    // Test template processing (for API endpoint)
+    public function previewTemplate($template, $variables, $contactName = 'John Doe') {
+        $testVars = array_merge($variables, ['name' => $contactName]);
+        return $this->processTemplate($template, $testVars);
+    }
+
+    // Get available template variables from a message
+    public function getTemplateVariables($message) {
+        preg_match_all('/\{(\w+)\}/', $message, $matches);
+        return array_unique($matches[1]);
     }
 }
 ?>
