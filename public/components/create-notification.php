@@ -2,7 +2,7 @@
     <h3 class="text-lg font-semibold text-gray-900 mb-6">Buat Pemberitahuan Baru</h3>
     
     <form id="notificationForm" class="space-y-6">
-        <!-- Title and Template (existing) -->
+        <!-- Title and Template -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
                 <label for="title" class="block mb-2 text-sm font-medium text-gray-900">Judul Notifikasi *</label>
@@ -25,7 +25,7 @@
             </div>
         </div>
 
-        <!-- Message (existing) -->
+        <!-- Message -->
         <div>
             <label for="message" class="block mb-2 text-sm font-medium text-gray-900">Pesan *</label>
             <textarea id="message" name="message" rows="5" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block w-full p-2.5" placeholder="Tulis pesan Anda di sini..." required></textarea>
@@ -41,15 +41,107 @@
             </div>
         </div>
 
-        <!-- NEW: Template Variables Input Section -->
+        <!-- Template Variables Input Section -->
         <div id="template-variables-container" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <!-- Dynamic variable inputs will be created here by JavaScript -->
+            <h4 class="text-sm font-medium text-gray-900 mb-3">Isi Nilai untuk Template Variables:</h4>
+            <div id="template-variables-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Dynamic variable inputs will be created here by JavaScript -->
+            </div>
         </div>
 
-        <!-- Rest of the form (recipients, schedule, etc.) remains the same -->
-        <!-- ... existing code ... -->
+        <!-- Send To Type Selection -->
+        <div>
+            <label class="block mb-2 text-sm font-medium text-gray-900">Kirim Ke *</label>
+            <div class="flex space-x-4">
+                <label class="flex items-center">
+                    <input type="radio" name="send_to_type" value="contact" class="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 focus:ring-green-500" required>
+                    <span class="ml-2 text-sm font-medium text-gray-900">Kontak</span>
+                </label>
+                <label class="flex items-center">
+                    <input type="radio" name="send_to_type" value="group" class="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 focus:ring-green-500" required>
+                    <span class="ml-2 text-sm font-medium text-gray-900">Grup</span>
+                </label>
+                <label class="flex items-center">
+                    <input type="radio" name="send_to_type" value="both" class="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 focus:ring-green-500" required>
+                    <span class="ml-2 text-sm font-medium text-gray-900">Kontak & Grup</span>
+                </label>
+            </div>
+        </div>
 
-        <!-- Submit Buttons with updated functionality -->
+        <!-- Contacts Selection -->
+        <div id="contacts-section" class="hidden">
+            <label class="block mb-2 text-sm font-medium text-gray-900">Pilih Kontak</label>
+            <div class="max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-3">
+                <?php foreach ($contacts as $contact): ?>
+                <label class="flex items-center mb-2">
+                    <input type="checkbox" name="contacts[]" value="<?php echo $contact['id']; ?>" class="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 rounded focus:ring-green-500">
+                    <span class="ml-2 text-sm text-gray-900">
+                        <?php echo htmlspecialchars($contact['name']); ?> (<?php echo htmlspecialchars($contact['phone']); ?>)
+                    </span>
+                </label>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
+        <!-- Groups Selection -->
+        <div id="groups-section" class="hidden">
+            <label class="block mb-2 text-sm font-medium text-gray-900">Pilih Grup</label>
+            <div class="max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-3">
+                <?php foreach ($groups as $group): ?>
+                <label class="flex items-center mb-2">
+                    <input type="checkbox" name="groups[]" value="<?php echo $group['id']; ?>" class="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 rounded focus:ring-green-500">
+                    <span class="ml-2 text-sm text-gray-900">
+                        <?php echo htmlspecialchars($group['name']); ?>
+                        <span class="text-gray-500 text-xs">(<?php echo htmlspecialchars($group['group_id']); ?>)</span>
+                    </span>
+                </label>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
+        <!-- Schedule Date/Time -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <label for="scheduled_date" class="block mb-2 text-sm font-medium text-gray-900">Tanggal Kirim</label>
+                <input type="date" id="scheduled_date" name="scheduled_date" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block w-full p-2.5">
+            </div>
+            <div>
+                <label for="scheduled_time" class="block mb-2 text-sm font-medium text-gray-900">Waktu Kirim</label>
+                <input type="time" id="scheduled_time" name="scheduled_time" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block w-full p-2.5">
+            </div>
+        </div>
+
+        <!-- Repeat Options -->
+        <div>
+            <label for="repeat_type" class="block mb-2 text-sm font-medium text-gray-900">Pengulangan</label>
+            <select id="repeat_type" name="repeat_type" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block w-full p-2.5">
+                <option value="once">Sekali saja</option>
+                <option value="daily">Harian</option>
+                <option value="weekly">Mingguan</option>
+                <option value="monthly">Bulanan</option>
+            </select>
+        </div>
+
+        <!-- Repeat Options Details -->
+        <div id="repeat-options" class="hidden">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label for="repeat_interval" class="block mb-2 text-sm font-medium text-gray-900">Interval</label>
+                    <select id="repeat_interval" name="repeat_interval" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block w-full p-2.5">
+                        <option value="1">Setiap 1</option>
+                        <option value="2">Setiap 2</option>
+                        <option value="3">Setiap 3</option>
+                        <option value="7">Setiap 7</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="repeat_until" class="block mb-2 text-sm font-medium text-gray-900">Sampai Tanggal</label>
+                    <input type="date" id="repeat_until" name="repeat_until" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block w-full p-2.5">
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit Buttons -->
         <div class="flex space-x-4">
             <button type="submit" name="action" value="schedule" class="text-white bg-green-600 hover:bg-green-700 focus:ring-4 focus:outline-none focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">
                 <i class="fas fa-clock mr-2"></i>Jadwalkan Notifikasi
@@ -107,7 +199,8 @@ function extractTemplateVariables(text) {
 // Function to create variable input fields
 function createVariableInputs(variables) {
     const container = document.getElementById('template-variables-container');
-    container.innerHTML = '';
+    const grid = document.getElementById('template-variables-grid');
+    grid.innerHTML = '';
     
     if (variables.length === 0) {
         container.classList.add('hidden');
@@ -115,14 +208,6 @@ function createVariableInputs(variables) {
     }
     
     container.classList.remove('hidden');
-    
-    const header = document.createElement('h4');
-    header.className = 'text-sm font-medium text-gray-900 mb-3';
-    header.textContent = 'Isi Nilai untuk Template Variables:';
-    container.appendChild(header);
-    
-    const grid = document.createElement('div');
-    grid.className = 'grid grid-cols-1 md:grid-cols-2 gap-4';
     
     variables.forEach(variable => {
         const div = document.createElement('div');
@@ -132,8 +217,15 @@ function createVariableInputs(variables) {
         label.textContent = getVariableLabel(variable);
         label.setAttribute('for', 'var_' + variable);
         
-        const input = document.createElement('input');
-        input.type = getVariableInputType(variable);
+        let input;
+        if (variable === 'agenda' || variable === 'announcement') {
+            input = document.createElement('textarea');
+            input.rows = 3;
+        } else {
+            input = document.createElement('input');
+            input.type = getVariableInputType(variable);
+        }
+        
         input.name = 'template_vars[' + variable + ']';
         input.id = 'var_' + variable;
         input.className = 'bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block w-full p-2.5';
@@ -150,8 +242,6 @@ function createVariableInputs(variables) {
         div.appendChild(input);
         grid.appendChild(div);
     });
-    
-    container.appendChild(grid);
 }
 
 // Function to get human-readable labels for variables
@@ -175,8 +265,6 @@ function getVariableInputType(variable) {
         return 'date';
     } else if (variable === 'time' || variable === 'deadline_time') {
         return 'time';
-    } else if (variable === 'agenda' || variable === 'announcement') {
-        return 'textarea'; // Will be handled separately
     }
     return 'text';
 }
@@ -196,22 +284,6 @@ function getVariablePlaceholder(variable) {
     return placeholders[variable] || 'Masukkan nilai untuk ' + variable;
 }
 
-// Function to create textarea for long variables
-function createTextareaIfNeeded(variable, container) {
-    if (variable === 'agenda' || variable === 'announcement') {
-        const lastInput = container.querySelector('#var_' + variable);
-        if (lastInput) {
-            const textarea = document.createElement('textarea');
-            textarea.name = lastInput.name;
-            textarea.id = lastInput.id;
-            textarea.className = lastInput.className;
-            textarea.placeholder = lastInput.placeholder;
-            textarea.rows = 3;
-            lastInput.parentNode.replaceChild(textarea, lastInput);
-        }
-    }
-}
-
 // Event listener for message textarea changes
 document.addEventListener('DOMContentLoaded', function() {
     const messageTextarea = document.getElementById('message');
@@ -221,11 +293,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const message = messageTextarea.value;
         const variables = extractTemplateVariables(message);
         createVariableInputs(variables);
-        
-        // Convert text inputs to textareas for long variables
-        variables.forEach(variable => {
-            createTextareaIfNeeded(variable, document.getElementById('template-variables-container'));
-        });
     }
     
     // Update when message changes
@@ -259,8 +326,12 @@ function previewMessage() {
     const previewContent = document.getElementById('previewContent');
     previewContent.innerHTML = message.replace(/\n/g, '<br>');
     
-    // Show modal (assuming you're using Flowbite)
-    const modalInstance = new Modal(modal);
-    modalInstance.show();
+    // Show modal
+    if (window.modalInstances && window.modalInstances.previewModal) {
+        window.modalInstances.previewModal.show();
+    } else {
+        const modalInstance = new Modal(modal);
+        modalInstance.show();
+    }
 }
 </script>

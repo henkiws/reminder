@@ -1,15 +1,9 @@
 <?php
-// Use the clean authentication check
-require_once 'auth.php';
+// Use the fixed authentication check
+require_once 'auth_check.php';
 
 require_once '../config/database.php';
 require_once '../classes/NotificationManager.php';
-
-// Ensure $currentUser is available
-// if (!isset($currentUser) || !$currentUser) {
-//     header('Location: login.php');
-//     exit;
-// }
 
 $database = new Database();
 $db = $database->getConnection();
@@ -20,6 +14,12 @@ $templates = $notificationManager->getTemplates($currentUser['id']);
 $contacts = $notificationManager->getContacts($currentUser['id']);
 $groups = $notificationManager->getGroups($currentUser['id']);
 $notifications = $notificationManager->getNotifications(20, 0, $currentUser['id']);
+
+// Get categories for template management
+$query = "SELECT * FROM notification_categories ORDER BY name";
+$stmt = $db->prepare($query);
+$stmt->execute();
+$categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 <!DOCTYPE html>
@@ -132,7 +132,7 @@ $notifications = $notificationManager->getNotifications(20, 0, $currentUser['id'
             <!-- Tab Content -->
             <div id="default-tab-content">
                 <!-- Create Notification Tab -->
-                <div class="hidden p-4 rounded-lg bg-gray-50" id="create" role="tabpanel" aria-labelledby="create-tab">
+                <div class="p-4 rounded-lg bg-gray-50" id="create" role="tabpanel" aria-labelledby="create-tab">
                     <?php include 'components/create-notification.php'; ?>
                 </div>
 
@@ -197,17 +197,25 @@ $notifications = $notificationManager->getNotifications(20, 0, $currentUser['id'
                                         <td class="px-6 py-4">
                                             <div class="flex space-x-2">
                                                 <?php if ($notification['status'] == 'pending'): ?>
-                                                    <button onclick="sendNotificationNow(<?php echo $notification['id']; ?>)" class="text-green-600 hover:text-green-900">
+                                                    <button onclick="sendNotificationNow(<?php echo $notification['id']; ?>)" class="text-green-600 hover:text-green-900" title="Kirim Sekarang">
                                                         <i class="fas fa-paper-plane"></i>
                                                     </button>
                                                 <?php endif; ?>
-                                                <button onclick="viewNotificationDetails(<?php echo $notification['id']; ?>)" class="text-blue-600 hover:text-blue-900">
+                                                <button onclick="viewNotificationDetails(<?php echo $notification['id']; ?>)" class="text-blue-600 hover:text-blue-900" title="Lihat Detail">
                                                     <i class="fas fa-eye"></i>
                                                 </button>
                                             </div>
                                         </td>
                                     </tr>
                                     <?php endforeach; ?>
+                                    
+                                    <?php if (empty($notifications)): ?>
+                                    <tr>
+                                        <td colspan="5" class="px-6 py-4 text-center text-gray-500">
+                                            Belum ada notifikasi yang dibuat.
+                                        </td>
+                                    </tr>
+                                    <?php endif; ?>
                                 </tbody>
                             </table>
                         </div>
@@ -226,7 +234,69 @@ $notifications = $notificationManager->getNotifications(20, 0, $currentUser['id'
 
                 <!-- Templates Tab -->
                 <div class="hidden p-4 rounded-lg bg-gray-50" id="templates" role="tabpanel" aria-labelledby="templates-tab">
-                    <?php include 'components/templates.php'; ?>
+                    <!-- Use the new template management component -->
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-lg font-semibold text-gray-900">Manajemen Template Pesan</h3>
+                            <button data-modal-target="addTemplateModal" data-modal-toggle="addTemplateModal" class="text-white bg-green-600 hover:bg-green-700 focus:ring-4 focus:outline-none focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">
+                                <i class="fas fa-plus mr-2"></i>Tambah Template
+                            </button>
+                        </div>
+                        
+                        <div class="grid gap-6">
+                            <?php foreach ($templates as $template): ?>
+                            <div class="border border-gray-200 rounded-lg p-4">
+                                <div class="flex justify-between items-start mb-3">
+                                    <div>
+                                        <h4 class="text-lg font-medium text-gray-900"><?php echo htmlspecialchars($template['title']); ?></h4>
+                                        <?php if ($template['category_name']): ?>
+                                            <span class="inline-block bg-gray-100 text-gray-800 text-xs font-medium px-2 py-1 rounded mt-1">
+                                                <?php echo htmlspecialchars($template['category_name']); ?>
+                                            </span>
+                                        <?php endif; ?>
+                                        <div class="text-xs text-gray-500 mt-1">
+                                            <?php if ($template['user_id']): ?>
+                                                Template Pribadi
+                                            <?php else: ?>
+                                                Template Sistem
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <button onclick="useTemplate('<?php echo htmlspecialchars($template['message_template']); ?>')" class="text-green-600 hover:text-green-900 text-sm font-medium">
+                                            <i class="fas fa-copy mr-1"></i>Gunakan
+                                        </button>
+                                        <?php if ($template['user_id'] == $currentUser['id'] || hasPermission('template.update')): ?>
+                                        <button onclick="editTemplate(<?php echo $template['id']; ?>, '<?php echo htmlspecialchars($template['title'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($template['message_template'], ENT_QUOTES); ?>', <?php echo $template['category_id'] ?: 'null'; ?>)" class="text-blue-600 hover:text-blue-900 text-sm font-medium">
+                                            <i class="fas fa-edit mr-1"></i>Edit
+                                        </button>
+                                        <?php endif; ?>
+                                        <?php if ($template['user_id'] == $currentUser['id'] || hasPermission('template.delete')): ?>
+                                        <button onclick="deleteTemplate(<?php echo $template['id']; ?>)" class="text-red-600 hover:text-red-900 text-sm font-medium">
+                                            <i class="fas fa-trash mr-1"></i>Hapus
+                                        </button>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                                
+                                <div class="bg-gray-50 p-3 rounded text-sm text-gray-700">
+                                    <?php echo nl2br(htmlspecialchars($template['message_template'])); ?>
+                                </div>
+                            </div>
+                            <?php endforeach; ?>
+                            
+                            <?php if (empty($templates)): ?>
+                            <div class="text-center py-8 text-gray-500">
+                                <i class="fas fa-file-alt text-4xl mb-4"></i>
+                                <p>Belum ada template yang tersedia.</p>
+                                <p class="text-sm">Klik "Tambah Template" untuk membuat template baru.</p>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <!-- Template Management Modals -->
+                    <?php include 'components/template-modals.php'; ?>
                 </div>
             </div>
         </div>

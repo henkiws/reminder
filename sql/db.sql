@@ -220,9 +220,9 @@ INSERT INTO roles (name, description, permissions) VALUES
 -- Insert default users
 -- Password untuk semua user demo: admin123
 INSERT INTO users (username, email, password, full_name, role_id, is_active, email_verified) VALUES
-('admin', 'admin@example.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'System Administrator', 1, TRUE, TRUE),
-('manager', 'manager@example.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Manager User', 3, TRUE, TRUE),
-('user1', 'user1@example.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Regular User', 4, TRUE, TRUE);
+('admin', 'admin@example.com', '$2y$12$tE9LDFSZ3fCRkJzmrM6evus1589ybZNBbxS7h0StMJ/Xwv0sQZk6m', 'System Administrator', 1, TRUE, TRUE),
+('manager', 'manager@example.com', '$2y$12$tE9LDFSZ3fCRkJzmrM6evus1589ybZNBbxS7h0StMJ/Xwv0sQZk6m', 'Manager User', 3, TRUE, TRUE),
+('user1', 'user1@example.com', '$2y$12$tE9LDFSZ3fCRkJzmrM6evus1589ybZNBbxS7h0StMJ/Xwv0sQZk6m', 'Regular User', 4, TRUE, TRUE);
 
 -- Insert data kategori default
 INSERT INTO notification_categories (name, description) VALUES

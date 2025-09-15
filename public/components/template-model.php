@@ -1,63 +1,3 @@
-<div class="bg-white p-6 rounded-lg shadow">
-    <div class="flex justify-between items-center mb-6">
-        <h3 class="text-lg font-semibold text-gray-900">Manajemen Template Pesan</h3>
-        <button data-modal-target="addTemplateModal" data-modal-toggle="addTemplateModal" class="text-white bg-green-600 hover:bg-green-700 focus:ring-4 focus:outline-none focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">
-            <i class="fas fa-plus mr-2"></i>Tambah Template
-        </button>
-    </div>
-    
-    <div class="grid gap-6">
-        <?php foreach ($templates as $template): ?>
-        <div class="border border-gray-200 rounded-lg p-4">
-            <div class="flex justify-between items-start mb-3">
-                <div>
-                    <h4 class="text-lg font-medium text-gray-900"><?php echo htmlspecialchars($template['title']); ?></h4>
-                    <?php if ($template['category_name']): ?>
-                        <span class="inline-block bg-gray-100 text-gray-800 text-xs font-medium px-2 py-1 rounded mt-1">
-                            <?php echo htmlspecialchars($template['category_name']); ?>
-                        </span>
-                    <?php endif; ?>
-                    <div class="text-xs text-gray-500 mt-1">
-                        <?php if ($template['user_id']): ?>
-                            Template Pribadi
-                        <?php else: ?>
-                            Template Sistem
-                        <?php endif; ?>
-                    </div>
-                </div>
-                <div class="flex space-x-2">
-                    <button onclick="useTemplate('<?php echo htmlspecialchars($template['message_template']); ?>')" class="text-green-600 hover:text-green-900 text-sm font-medium">
-                        <i class="fas fa-copy mr-1"></i>Gunakan
-                    </button>
-                    <?php if ($template['user_id'] == $currentUser['id'] || hasPermission('template.update')): ?>
-                    <button onclick="editTemplate(<?php echo $template['id']; ?>, '<?php echo htmlspecialchars($template['title']); ?>', '<?php echo htmlspecialchars($template['message_template']); ?>', <?php echo $template['category_id'] ?: 'null'; ?>)" class="text-blue-600 hover:text-blue-900 text-sm font-medium">
-                        <i class="fas fa-edit mr-1"></i>Edit
-                    </button>
-                    <?php endif; ?>
-                    <?php if ($template['user_id'] == $currentUser['id'] || hasPermission('template.delete')): ?>
-                    <button onclick="deleteTemplate(<?php echo $template['id']; ?>)" class="text-red-600 hover:text-red-900 text-sm font-medium">
-                        <i class="fas fa-trash mr-1"></i>Hapus
-                    </button>
-                    <?php endif; ?>
-                </div>
-            </div>
-            
-            <div class="bg-gray-50 p-3 rounded text-sm text-gray-700">
-                <?php echo nl2br(htmlspecialchars($template['message_template'])); ?>
-            </div>
-        </div>
-        <?php endforeach; ?>
-        
-        <?php if (empty($templates)): ?>
-        <div class="text-center py-8 text-gray-500">
-            <i class="fas fa-file-alt text-4xl mb-4"></i>
-            <p>Belum ada template yang tersedia.</p>
-            <p class="text-sm">Klik "Tambah Template" untuk membuat template baru.</p>
-        </div>
-        <?php endif; ?>
-    </div>
-</div>
-
 <!-- Add Template Modal -->
 <div id="addTemplateModal" tabindex="-1" aria-hidden="true" role="dialog" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
     <div class="relative p-4 w-full max-w-2xl max-h-full">
@@ -83,16 +23,7 @@
                         <label for="template_category" class="block mb-2 text-sm font-medium text-gray-900">Kategori (Opsional)</label>
                         <select name="category_id" id="template_category" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block w-full p-2.5">
                             <option value="">Pilih Kategori</option>
-                            <?php 
-                            // Get categories from database (you might need to add this to your controller)
-                            $categories = [
-                                ['id' => 1, 'name' => 'Meeting'],
-                                ['id' => 2, 'name' => 'Deadline'],
-                                ['id' => 3, 'name' => 'Announcement'],
-                                ['id' => 4, 'name' => 'Reminder'],
-                                ['id' => 5, 'name' => 'Report']
-                            ];
-                            foreach ($categories as $category): ?>
+                            <?php foreach ($categories as $category): ?>
                                 <option value="<?php echo $category['id']; ?>"><?php echo htmlspecialchars($category['name']); ?></option>
                             <?php endforeach; ?>
                         </select>
@@ -321,7 +252,7 @@ function updateVariablesPreview(textarea) {
     }
 }
 
-// Initialize template management
+// Initialize template management when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     // Add template form handler
     const addTemplateForm = document.getElementById('addTemplateForm');

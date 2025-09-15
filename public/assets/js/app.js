@@ -1,7 +1,8 @@
-// public/assets/js/app.js
+// public/assets/js/app.js - FIXED VERSION
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
+    initializeAllModals();
     initializeFormHandlers();
     initializeTemplateSelector();
     initializeSendToTypeHandler();
@@ -9,6 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setDefaultDateTime();
     initializePhoneFormatting();
     initializeTabHandling();
+    console.log('Application initialized successfully');
 });
 
 // Set default date and time to now
@@ -24,6 +26,54 @@ function setDefaultDateTime() {
     if (timeInput) timeInput.value = time;
 }
 
+// Initialize all modals
+function initializeAllModals() {
+    // List of all modal IDs used in the system
+    const modalIds = [
+        'addContactModal',
+        'editContactModal', 
+        'addGroupModal',
+        'editGroupModal',
+        'addUserModal',
+        'editUserModal',
+        'userActivityModal',
+        'previewModal',
+        'successModal',
+        'errorModal',
+        'addTemplateModal',
+        'editTemplateModal'
+    ];
+    
+    // Initialize global modal instances storage
+    if (!window.modalInstances) {
+        window.modalInstances = {};
+    }
+    
+    modalIds.forEach(modalId => {
+        const modalElement = document.getElementById(modalId);
+        if (modalElement) {
+            try {
+                const modalInstance = new Modal(modalElement, {
+                    backdrop: 'dynamic',
+                    backdropClasses: 'bg-gray-900 bg-opacity-50 dark:bg-opacity-80 fixed inset-0 z-40',
+                    closable: true,
+                    onHide: () => {
+                        console.log('Modal ' + modalId + ' is hidden');
+                    },
+                    onShow: () => {
+                        console.log('Modal ' + modalId + ' is shown');
+                    }
+                });
+                
+                window.modalInstances[modalId] = modalInstance;
+                console.log('Initialized modal:', modalId);
+            } catch (error) {
+                console.error('Error initializing modal:', modalId, error);
+            }
+        }
+    });
+}
+
 // Handle form submissions
 function initializeFormHandlers() {
     // Notification form
@@ -32,28 +82,56 @@ function initializeFormHandlers() {
         notificationForm.addEventListener('submit', handleNotificationSubmit);
     }
     
-    // Add contact form
+    // Contact forms
     const addContactForm = document.getElementById('addContactForm');
     if (addContactForm) {
         addContactForm.addEventListener('submit', handleAddContact);
     }
     
-    // Edit contact form
     const editContactForm = document.getElementById('editContactForm');
     if (editContactForm) {
         editContactForm.addEventListener('submit', handleEditContact);
     }
     
-    // Add group form
+    // Group forms
     const addGroupForm = document.getElementById('addGroupForm');
     if (addGroupForm) {
         addGroupForm.addEventListener('submit', handleAddGroup);
     }
     
-    // Edit group form
     const editGroupForm = document.getElementById('editGroupForm');
     if (editGroupForm) {
         editGroupForm.addEventListener('submit', handleEditGroup);
+    }
+    
+    // Template forms
+    const addTemplateForm = document.getElementById('addTemplateForm');
+    if (addTemplateForm) {
+        addTemplateForm.addEventListener('submit', handleAddTemplate);
+        
+        // Add variables preview for add form
+        const addMessageTextarea = document.getElementById('template_message');
+        if (addMessageTextarea) {
+            addMessageTextarea.addEventListener('input', function() {
+                updateVariablesPreview(this);
+            });
+        }
+    }
+    
+    const editTemplateForm = document.getElementById('editTemplateForm');
+    if (editTemplateForm) {
+        editTemplateForm.addEventListener('submit', handleEditTemplate);
+    }
+    
+    // User forms (if available)
+    const addUserForm = document.getElementById('addUserForm');
+    if (addUserForm) {
+        addUserForm.addEventListener('submit', handleAddUser);
+    }
+    
+    const editUserForm = document.getElementById('editUserForm');
+    if (editUserForm) {
+        editUserForm.addEventListener('submit', handleEditUser);
     }
 }
 
@@ -78,6 +156,20 @@ function handleNotificationSubmit(e) {
     // Get action type from the clicked button
     const action = document.activeElement.value || 'schedule';
     data.action = action;
+    
+    // Collect template variables
+    const templateVars = {};
+    const variableInputs = document.querySelectorAll('[name^="template_vars["]');
+    variableInputs.forEach(input => {
+        const match = input.name.match(/template_vars\[(\w+)\]/);
+        if (match && input.value.trim()) {
+            templateVars[match[1]] = input.value.trim();
+        }
+    });
+    
+    if (Object.keys(templateVars).length > 0) {
+        data.template_vars = templateVars;
+    }
     
     // Validate required fields
     if (!data.title || !data.message || !data.send_to_type) {
@@ -163,6 +255,9 @@ function initializeTemplateSelector() {
             if (selectedOption.value) {
                 const template = selectedOption.dataset.template;
                 messageTextarea.value = template;
+                
+                // Trigger variable inputs update
+                updateVariableInputs();
             }
         });
     }
@@ -220,12 +315,175 @@ function initializeRepeatOptions() {
     }
 }
 
+// Template Variables Functions
+function extractTemplateVariables(text) {
+    const regex = /\{(\w+)\}/g;
+    const variables = [];
+    let match;
+    
+    while ((match = regex.exec(text)) !== null) {
+        if (!variables.includes(match[1])) {
+            variables.push(match[1]);
+        }
+    }
+    return variables;
+}
+
+function createVariableInputs(variables) {
+    const container = document.getElementById('template-variables-container');
+    const grid = document.getElementById('template-variables-grid');
+    
+    if (!container || !grid) return;
+    
+    grid.innerHTML = '';
+    
+    if (variables.length === 0) {
+        container.classList.add('hidden');
+        return;
+    }
+    
+    container.classList.remove('hidden');
+    
+    variables.forEach(variable => {
+        const div = document.createElement('div');
+        
+        const label = document.createElement('label');
+        label.className = 'block text-sm font-medium text-gray-700 mb-1';
+        label.textContent = getVariableLabel(variable);
+        label.setAttribute('for', 'var_' + variable);
+        
+        let input;
+        if (variable === 'agenda' || variable === 'announcement') {
+            input = document.createElement('textarea');
+            input.rows = 3;
+        } else {
+            input = document.createElement('input');
+            input.type = getVariableInputType(variable);
+        }
+        
+        input.name = 'template_vars[' + variable + ']';
+        input.id = 'var_' + variable;
+        input.className = 'bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block w-full p-2.5';
+        input.placeholder = getVariablePlaceholder(variable);
+        
+        // Set default values for some variables
+        if (variable === 'date') {
+            input.value = new Date().toLocaleDateString('id-ID');
+        } else if (variable === 'time') {
+            input.value = new Date().toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'});
+        }
+        
+        div.appendChild(label);
+        div.appendChild(input);
+        grid.appendChild(div);
+    });
+}
+
+function getVariableLabel(variable) {
+    const labels = {
+        'name': 'Nama Penerima',
+        'date': 'Tanggal',
+        'time': 'Waktu',
+        'location': 'Lokasi/Tempat',
+        'agenda': 'Agenda',
+        'deadline_date': 'Tanggal Deadline',
+        'deadline_time': 'Waktu Deadline',
+        'announcement': 'Teks Pengumuman'
+    };
+    return labels[variable] || variable.replace('_', ' ').toUpperCase();
+}
+
+function getVariableInputType(variable) {
+    if (variable === 'date' || variable === 'deadline_date') {
+        return 'date';
+    } else if (variable === 'time' || variable === 'deadline_time') {
+        return 'time';
+    }
+    return 'text';
+}
+
+function getVariablePlaceholder(variable) {
+    const placeholders = {
+        'name': 'Nama akan diambil dari kontak',
+        'date': 'DD/MM/YYYY',
+        'time': 'HH:MM',
+        'location': 'Contoh: Ruang Meeting A',
+        'agenda': 'Contoh: Review Project Progress',
+        'deadline_date': 'DD/MM/YYYY',
+        'deadline_time': 'HH:MM',
+        'announcement': 'Teks pengumuman lengkap'
+    };
+    return placeholders[variable] || 'Masukkan nilai untuk ' + variable;
+}
+
+function updateVariableInputs() {
+    const messageTextarea = document.getElementById('message');
+    if (!messageTextarea) return;
+    
+    const message = messageTextarea.value;
+    const variables = extractTemplateVariables(message);
+    createVariableInputs(variables);
+}
+
+// Event listener for message textarea changes
+document.addEventListener('DOMContentLoaded', function() {
+    const messageTextarea = document.getElementById('message');
+    const templateSelect = document.getElementById('template');
+    
+    if (messageTextarea) {
+        // Update when message changes
+        messageTextarea.addEventListener('input', updateVariableInputs);
+        
+        // Initial check
+        updateVariableInputs();
+    }
+    
+    if (templateSelect) {
+        // Update when template is selected
+        templateSelect.addEventListener('change', function() {
+            setTimeout(updateVariableInputs, 100); // Small delay to let template load
+        });
+    }
+});
+
+// Function to preview message with variables filled
+function previewMessage() {
+    const messageTextarea = document.getElementById('message');
+    if (!messageTextarea) return;
+    
+    let message = messageTextarea.value;
+    
+    // Get all template variable inputs
+    const variableInputs = document.querySelectorAll('[name^="template_vars["]');
+    
+    variableInputs.forEach(input => {
+        const variable = input.name.match(/template_vars\[(\w+)\]/)[1];
+        const value = input.value || `{${variable}}`;
+        message = message.replace(new RegExp(`\\{${variable}\\}`, 'g'), value);
+    });
+    
+    // Show preview
+    const modal = document.getElementById('previewModal');
+    const previewContent = document.getElementById('previewContent');
+    if (previewContent) {
+        previewContent.innerHTML = message.replace(/\n/g, '<br>');
+    }
+    
+    // Show modal
+    showModal('previewModal');
+}
+
 // Contact management functions
 function handleAddContact(e) {
     e.preventDefault();
     
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData);
+    
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Menyimpan...';
     
     fetch('api.php/contact', {
         method: 'POST',
@@ -239,14 +497,19 @@ function handleAddContact(e) {
         if (result.success) {
             showSuccess('Kontak berhasil ditambahkan');
             e.target.reset();
+            hideModal('addContactModal');
             setTimeout(() => location.reload(), 1500);
         } else {
-            showError('Gagal menambahkan kontak');
+            showError('Gagal menambahkan kontak: ' + (result.error || 'Unknown error'));
         }
     })
     .catch(error => {
         console.error('Error:', error);
         showError('Terjadi kesalahan sistem');
+    })
+    .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
     });
 }
 
@@ -255,6 +518,11 @@ function handleEditContact(e) {
     
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData);
+    
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Menyimpan...';
     
     fetch('api.php/contact', {
         method: 'PUT',
@@ -267,14 +535,19 @@ function handleEditContact(e) {
     .then(result => {
         if (result.success) {
             showSuccess('Kontak berhasil diperbarui');
+            hideModal('editContactModal');
             setTimeout(() => location.reload(), 1500);
         } else {
-            showError('Gagal memperbarui kontak');
+            showError('Gagal memperbarui kontak: ' + (result.error || 'Unknown error'));
         }
     })
     .catch(error => {
         console.error('Error:', error);
         showError('Terjadi kesalahan sistem');
+    })
+    .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
     });
 }
 
@@ -283,9 +556,7 @@ function editContact(id, name, phone) {
     document.getElementById('edit_contact_name').value = name;
     document.getElementById('edit_contact_phone').value = phone;
     
-    // Show modal using Flowbite
-    const modal = new Modal(document.getElementById('editContactModal'));
-    modal.show();
+    showModal('editContactModal');
 }
 
 function deleteContact(id) {
@@ -299,7 +570,7 @@ function deleteContact(id) {
                 showSuccess('Kontak berhasil dihapus');
                 setTimeout(() => location.reload(), 1500);
             } else {
-                showError('Gagal menghapus kontak');
+                showError('Gagal menghapus kontak: ' + (result.error || 'Unknown error'));
             }
         })
         .catch(error => {
@@ -316,6 +587,11 @@ function handleAddGroup(e) {
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData);
     
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Menyimpan...';
+    
     fetch('api.php/group', {
         method: 'POST',
         headers: {
@@ -328,14 +604,19 @@ function handleAddGroup(e) {
         if (result.success) {
             showSuccess('Grup berhasil ditambahkan');
             e.target.reset();
+            hideModal('addGroupModal');
             setTimeout(() => location.reload(), 1500);
         } else {
-            showError('Gagal menambahkan grup');
+            showError('Gagal menambahkan grup: ' + (result.error || 'Unknown error'));
         }
     })
     .catch(error => {
         console.error('Error:', error);
         showError('Terjadi kesalahan sistem');
+    })
+    .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
     });
 }
 
@@ -344,6 +625,11 @@ function handleEditGroup(e) {
     
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData);
+    
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Menyimpan...';
     
     fetch('api.php/group', {
         method: 'PUT',
@@ -356,14 +642,19 @@ function handleEditGroup(e) {
     .then(result => {
         if (result.success) {
             showSuccess('Grup berhasil diperbarui');
+            hideModal('editGroupModal');
             setTimeout(() => location.reload(), 1500);
         } else {
-            showError('Gagal memperbarui grup');
+            showError('Gagal memperbarui grup: ' + (result.error || 'Unknown error'));
         }
     })
     .catch(error => {
         console.error('Error:', error);
         showError('Terjadi kesalahan sistem');
+    })
+    .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
     });
 }
 
@@ -371,11 +662,9 @@ function editGroup(id, name, groupId, description) {
     document.getElementById('edit_group_id').value = id;
     document.getElementById('edit_group_name').value = name;
     document.getElementById('edit_group_group_id').value = groupId;
-    document.getElementById('edit_group_description').value = description;
+    document.getElementById('edit_group_description').value = description || '';
     
-    // Show modal using Flowbite
-    const modal = new Modal(document.getElementById('editGroupModal'));
-    modal.show();
+    showModal('editGroupModal');
 }
 
 function deleteGroup(id) {
@@ -389,7 +678,7 @@ function deleteGroup(id) {
                 showSuccess('Grup berhasil dihapus');
                 setTimeout(() => location.reload(), 1500);
             } else {
-                showError('Gagal menghapus grup');
+                showError('Gagal menghapus grup: ' + (result.error || 'Unknown error'));
             }
         })
         .catch(error => {
@@ -399,14 +688,19 @@ function deleteGroup(id) {
     }
 }
 
-// User management functions
-function handleAddUser(e) {
+// Template management functions
+function handleAddTemplate(e) {
     e.preventDefault();
     
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData);
     
-    fetch('api.php/user', {
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Menyimpan...';
+    
+    fetch('api.php/template', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -416,32 +710,36 @@ function handleAddUser(e) {
     .then(response => response.json())
     .then(result => {
         if (result.success) {
-            showSuccess('User berhasil ditambahkan');
+            showSuccess('Template berhasil ditambahkan');
             e.target.reset();
+            hideModal('addTemplateModal');
             setTimeout(() => location.reload(), 1500);
         } else {
-            showError('Gagal menambahkan user: ' + result.error);
+            showError('Gagal menambahkan template: ' + (result.error || 'Unknown error'));
         }
     })
     .catch(error => {
         console.error('Error:', error);
         showError('Terjadi kesalahan sistem');
+    })
+    .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
     });
 }
 
-function handleEditUser(e) {
+function handleEditTemplate(e) {
     e.preventDefault();
     
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData);
     
-    // Convert checkbox to boolean
-    data.is_active = document.getElementById('edit_user_active').checked;
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Menyimpan...';
     
-    const userId = data.id;
-    delete data.id;
-    
-    fetch(`api.php/user/${userId}`, {
+    fetch('api.php/template', {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json'
@@ -451,41 +749,44 @@ function handleEditUser(e) {
     .then(response => response.json())
     .then(result => {
         if (result.success) {
-            showSuccess('User berhasil diperbarui');
+            showSuccess('Template berhasil diperbarui');
+            hideModal('editTemplateModal');
             setTimeout(() => location.reload(), 1500);
         } else {
-            showError('Gagal memperbarui user: ' + result.error);
+            showError('Gagal memperbarui template: ' + (result.error || 'Unknown error'));
         }
     })
     .catch(error => {
         console.error('Error:', error);
         showError('Terjadi kesalahan sistem');
+    })
+    .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
     });
 }
 
-function editUser(id, fullName, email, username, isActive) {
-    document.getElementById('edit_user_id').value = id;
-    document.getElementById('edit_user_full_name').value = fullName;
-    document.getElementById('edit_user_email').value = email;
-    document.getElementById('edit_user_username').value = username;
-    document.getElementById('edit_user_active').checked = isActive;
+function editTemplate(id, title, messageTemplate, categoryId) {
+    document.getElementById('edit_template_id').value = id;
+    document.getElementById('edit_template_title').value = title;
+    document.getElementById('edit_template_message').value = messageTemplate;
+    document.getElementById('edit_template_category').value = categoryId || '';
     
-    const modal = new Modal(document.getElementById('editUserModal'));
-    modal.show();
+    showModal('editTemplateModal');
 }
 
-function deleteUser(id) {
-    if (confirm('Apakah Anda yakin ingin menonaktifkan user ini?')) {
-        fetch(`api.php/user/${id}`, {
+function deleteTemplate(id) {
+    if (confirm('Apakah Anda yakin ingin menghapus template ini?')) {
+        fetch(`api.php/template/${id}`, {
             method: 'DELETE'
         })
         .then(response => response.json())
         .then(result => {
             if (result.success) {
-                showSuccess('User berhasil dinonaktifkan');
+                showSuccess('Template berhasil dihapus');
                 setTimeout(() => location.reload(), 1500);
             } else {
-                showError('Gagal menonaktifkan user: ' + result.error);
+                showError('Gagal menghapus template: ' + (result.error || 'Unknown error'));
             }
         })
         .catch(error => {
@@ -495,88 +796,22 @@ function deleteUser(id) {
     }
 }
 
-function viewUserActivity(userId) {
-    fetch(`api.php/user/${userId}/activity`)
-    .then(response => response.json())
-    .then(data => {
-        const content = document.getElementById('activityLogContent');
-        
-        if (data.length === 0) {
-            content.innerHTML = '<p class="text-gray-500 text-center">Tidak ada aktivitas</p>';
-        } else {
-            content.innerHTML = data.map(log => `
-                <div class="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
-                    <div class="flex-shrink-0">
-                        <i class="fas fa-clock text-gray-400"></i>
-                    </div>
-                    <div class="flex-grow">
-                        <div class="text-sm font-medium text-gray-900">${escapeHtml(log.action)}</div>
-                        ${log.description ? `<div class="text-sm text-gray-600">${escapeHtml(log.description)}</div>` : ''}
-                        <div class="text-xs text-gray-500 mt-1">
-                            ${new Date(log.created_at).toLocaleString('id-ID')}
-                            ${log.ip_address ? ` • IP: ${escapeHtml(log.ip_address)}` : ''}
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-        }
-        
-        const modal = new Modal(document.getElementById('userActivityModal'));
-        modal.show();
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showError('Gagal memuat aktivitas user');
-    });
-}
-
-function showUserManagement() {
-    // Load user management content dynamically
-    fetch('components/user-management.php')
-    .then(response => response.text())
-    .then(html => {
-        // Create a new tab content area for user management
-        const tabContent = document.getElementById('default-tab-content');
-        
-        // Hide all existing tabs
-        const allTabs = tabContent.querySelectorAll('[role="tabpanel"]');
-        allTabs.forEach(tab => tab.classList.add('hidden'));
-        
-        // Remove existing user management tab if any
-        const existingUserTab = document.getElementById('user-management');
-        if (existingUserTab) {
-            existingUserTab.remove();
-        }
-        
-        // Create new user management tab
-        const userManagementDiv = document.createElement('div');
-        userManagementDiv.id = 'user-management';
-        userManagementDiv.className = 'p-4 rounded-lg bg-gray-50';
-        userManagementDiv.setAttribute('role', 'tabpanel');
-        userManagementDiv.innerHTML = html;
-        
-        tabContent.appendChild(userManagementDiv);
-        
-        // Initialize form handlers for user management
-        const addUserForm = document.getElementById('addUserForm');
-        if (addUserForm) {
-            addUserForm.addEventListener('submit', handleAddUser);
-        }
-        
-        const editUserForm = document.getElementById('editUserForm');
-        if (editUserForm) {
-            editUserForm.addEventListener('submit', handleEditUser);
-        }
-    })
-    .catch(error => {
-        console.error('Error loading user management:', error);
-        showError('Gagal memuat halaman manajemen user');
-    });
-}
-
-function showProfile() {
-    // Show user profile modal or page
-    alert('Fitur profil pengguna akan segera tersedia');
+function updateVariablesPreview(textarea) {
+    const message = textarea.value;
+    const variables = extractTemplateVariables(message);
+    const preview = document.getElementById('template-variables-preview');
+    const variablesList = document.getElementById('variables-list');
+    
+    if (!preview || !variablesList) return;
+    
+    if (variables.length > 0) {
+        preview.classList.remove('hidden');
+        variablesList.innerHTML = variables.map(variable => 
+            `<span class="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded">{${variable}}</span>`
+        ).join('');
+    } else {
+        preview.classList.add('hidden');
+    }
 }
 
 // Template functions
@@ -584,6 +819,9 @@ function useTemplate(template) {
     const messageTextarea = document.getElementById('message');
     if (messageTextarea) {
         messageTextarea.value = template;
+        
+        // Update variable inputs
+        updateVariableInputs();
         
         // Switch to create notification tab
         const createTab = document.getElementById('create-tab');
@@ -630,30 +868,82 @@ function viewNotificationDetails(id) {
     alert('Fitur detail notifikasi akan segera tersedia');
 }
 
+// User management functions (placeholder)
+function showUserManagement() {
+    alert('Fitur manajemen user akan segera tersedia');
+}
+
+function showProfile() {
+    alert('Fitur profil pengguna akan segera tersedia');
+}
+
+// Modal management functions
+function showModal(modalId) {
+    console.log('Attempting to show modal:', modalId);
+    
+    let modalInstance = window.modalInstances[modalId];
+    
+    if (!modalInstance) {
+        const modalElement = document.getElementById(modalId);
+        if (modalElement) {
+            modalInstance = new Modal(modalElement);
+            window.modalInstances[modalId] = modalInstance;
+            console.log('Created new modal instance for:', modalId);
+        } else {
+            console.error('Modal element not found:', modalId);
+            return false;
+        }
+    }
+    
+    try {
+        modalInstance.show();
+        return true;
+    } catch (error) {
+        console.error('Error showing modal:', modalId, error);
+        return false;
+    }
+}
+
+function hideModal(modalId) {
+    console.log('Attempting to hide modal:', modalId);
+    
+    const modalInstance = window.modalInstances[modalId];
+    if (modalInstance) {
+        try {
+            modalInstance.hide();
+            return true;
+        } catch (error) {
+            console.error('Error hiding modal:', modalId, error);
+            return false;
+        }
+    } else {
+        console.warn('Modal instance not found:', modalId);
+        return false;
+    }
+}
+
 // Utility functions
 function showSuccess(message) {
-    const modal = document.getElementById('successModal');
-    const messageElement = document.getElementById('successMessage');
+    console.log('Showing success message:', message);
     
-    if (modal && messageElement) {
+    const messageElement = document.getElementById('successMessage');
+    if (messageElement) {
         messageElement.textContent = message;
-        const modalInstance = new Modal(modal);
-        modalInstance.show();
+        showModal('successModal');
     } else {
-        alert(message);
+        alert('Success: ' + message);
     }
 }
 
 function showError(message) {
-    const modal = document.getElementById('errorModal');
-    const messageElement = document.getElementById('errorMessage');
+    console.log('Showing error message:', message);
     
-    if (modal && messageElement) {
+    const messageElement = document.getElementById('errorMessage');
+    if (messageElement) {
         messageElement.textContent = message;
-        const modalInstance = new Modal(modal);
-        modalInstance.show();
+        showModal('errorModal');
     } else {
-        alert(message);
+        alert('Error: ' + message);
     }
 }
 
@@ -694,371 +984,18 @@ function escapeHtml(text) {
     return text.replace(/[&<>"']/g, function(m) { return map[m]; });
 }
 
-// Auto-refresh functionality (optional)
-let autoRefreshInterval;
-
-function startAutoRefresh() {
-    autoRefreshInterval = setInterval(() => {
-        // Only refresh if we're on notifications tab
-        const notificationsTab = document.getElementById('notifications');
-        if (notificationsTab && !notificationsTab.classList.contains('hidden')) {
-            location.reload();
-        }
-    }, 30000); // 30 seconds
-}
-
-function stopAutoRefresh() {
-    if (autoRefreshInterval) {
-        clearInterval(autoRefreshInterval);
-    }
-}
-
-// Handle tab changes to manage auto-refresh
+// Handle tab changes
 function initializeTabHandling() {
     const tabButtons = document.querySelectorAll('[data-tabs-target]');
     tabButtons.forEach(button => {
         button.addEventListener('click', function() {
             const target = this.getAttribute('data-tabs-target');
-            if (target === '#notifications') {
-                // Uncomment to enable auto-refresh on notifications tab
-                // startAutoRefresh();
-            } else {
-                // stopAutoRefresh();
-            }
+            console.log('Tab clicked:', target);
         });
     });
 }
 
-// Global modal instances storage
-window.modalInstances = {};
-
-// Initialize all modals when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-    initializeAllModals();
-    initializeFormHandlers();
-    initializeTemplateSelector();
-    initializeSendToTypeHandler();
-    initializeRepeatOptions();
-    setDefaultDateTime();
-    initializePhoneFormatting();
-    initializeTabHandling();
-});
-
-// Function to initialize all modals
-function initializeAllModals() {
-    // List of all modal IDs used in the system
-    const modalIds = [
-        'addContactModal',
-        'editContactModal', 
-        'addGroupModal',
-        'editGroupModal',
-        'addUserModal',
-        'editUserModal',
-        'userActivityModal',
-        'previewModal',
-        'successModal',
-        'errorModal'
-    ];
-    
-    modalIds.forEach(modalId => {
-        const modalElement = document.getElementById(modalId);
-        if (modalElement) {
-            // Initialize Flowbite modal
-            const modalInstance = new Modal(modalElement, {
-                backdrop: 'dynamic',
-                backdropClasses: 'bg-gray-900 bg-opacity-50 dark:bg-opacity-80 fixed inset-0 z-40',
-                closable: true,
-                onHide: () => {
-                    console.log('Modal ' + modalId + ' is hidden');
-                },
-                onShow: () => {
-                    console.log('Modal ' + modalId + ' is shown');
-                }
-            });
-            
-            // Store instance for later use
-            window.modalInstances[modalId] = modalInstance;
-            console.log('Initialized modal:', modalId);
-        } else {
-            console.warn('Modal element not found:', modalId);
-        }
-    });
-}
-
-// Improved modal show function
-function showModal(modalId) {
-    console.log('Attempting to show modal:', modalId);
-    
-    // Try to get existing instance
-    let modalInstance = window.modalInstances[modalId];
-    
-    // If no instance exists, try to create one
-    if (!modalInstance) {
-        const modalElement = document.getElementById(modalId);
-        if (modalElement) {
-            modalInstance = new Modal(modalElement);
-            window.modalInstances[modalId] = modalInstance;
-            console.log('Created new modal instance for:', modalId);
-        } else {
-            console.error('Modal element not found:', modalId);
-            return false;
-        }
-    }
-    
-    try {
-        modalInstance.show();
-        return true;
-    } catch (error) {
-        console.error('Error showing modal:', modalId, error);
-        return false;
-    }
-}
-
-// Improved modal hide function
-function hideModal(modalId) {
-    console.log('Attempting to hide modal:', modalId);
-    
-    const modalInstance = window.modalInstances[modalId];
-    if (modalInstance) {
-        try {
-            modalInstance.hide();
-            return true;
-        } catch (error) {
-            console.error('Error hiding modal:', modalId, error);
-            return false;
-        }
-    } else {
-        console.warn('Modal instance not found:', modalId);
-        // Fallback: try to hide by manipulating classes directly
-        const modalElement = document.getElementById(modalId);
-        if (modalElement) {
-            modalElement.classList.add('hidden');
-            modalElement.style.display = 'none';
-            
-            // Remove backdrop if it exists
-            const backdrop = document.querySelector('[modal-backdrop]');
-            if (backdrop) {
-                backdrop.remove();
-            }
-            
-            // Re-enable body scroll
-            document.body.classList.remove('overflow-hidden');
-            return true;
-        }
-        return false;
-    }
-}
-
-// Fixed contact management functions
-function editContact(id, name, phone) {
-    console.log('Edit contact called:', id, name, phone);
-    
-    // Fill form data
-    const idField = document.getElementById('edit_contact_id');
-    const nameField = document.getElementById('edit_contact_name');
-    const phoneField = document.getElementById('edit_contact_phone');
-    
-    if (idField) idField.value = id;
-    if (nameField) nameField.value = name;
-    if (phoneField) phoneField.value = phone;
-    
-    // Show modal
-    showModal('editContactModal');
-}
-
-function editGroup(id, name, groupId, description) {
-    console.log('Edit group called:', id, name, groupId, description);
-    
-    // Fill form data
-    const idField = document.getElementById('edit_group_id');
-    const nameField = document.getElementById('edit_group_name');
-    const groupIdField = document.getElementById('edit_group_group_id');
-    const descField = document.getElementById('edit_group_description');
-    
-    if (idField) idField.value = id;
-    if (nameField) nameField.value = name;
-    if (groupIdField) groupIdField.value = groupId;
-    if (descField) descField.value = description || '';
-    
-    // Show modal
-    showModal('editGroupModal');
-}
-
-function editUser(id, fullName, email, username, isActive) {
-    console.log('Edit user called:', id, fullName, email, username, isActive);
-    
-    // Fill form data
-    const idField = document.getElementById('edit_user_id');
-    const nameField = document.getElementById('edit_user_full_name');
-    const emailField = document.getElementById('edit_user_email');
-    const usernameField = document.getElementById('edit_user_username');
-    const activeField = document.getElementById('edit_user_active');
-    
-    if (idField) idField.value = id;
-    if (nameField) nameField.value = fullName;
-    if (emailField) emailField.value = email;
-    if (usernameField) usernameField.value = username;
-    if (activeField) activeField.checked = isActive;
-    
-    // Show modal
-    showModal('editUserModal');
-}
-
-// Fixed form submission handlers
-function handleEditContact(e) {
-    e.preventDefault();
-    
-    const formData = new FormData(e.target);
-    const data = Object.fromEntries(formData);
-    
-    console.log('Submitting contact edit:', data);
-    
-    // Show loading state
-    const submitBtn = e.target.querySelector('button[type="submit"]');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Menyimpan...';
-    
-    fetch('api.php/contact', {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-    })
-    .then(response => response.json())
-    .then(result => {
-        if (result.success) {
-            showSuccess('Kontak berhasil diperbarui');
-            hideModal('editContactModal');
-            setTimeout(() => location.reload(), 1500);
-        } else {
-            showError('Gagal memperbarui kontak: ' + (result.error || 'Unknown error'));
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showError('Terjadi kesalahan sistem');
-    })
-    .finally(() => {
-        // Restore button
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = originalText;
-    });
-}
-
-function handleEditGroup(e) {
-    e.preventDefault();
-    
-    const formData = new FormData(e.target);
-    const data = Object.fromEntries(formData);
-    
-    console.log('Submitting group edit:', data);
-    
-    // Show loading state
-    const submitBtn = e.target.querySelector('button[type="submit"]');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Menyimpan...';
-    
-    fetch('api.php/group', {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-    })
-    .then(response => response.json())
-    .then(result => {
-        if (result.success) {
-            showSuccess('Grup berhasil diperbarui');
-            hideModal('editGroupModal');
-            setTimeout(() => location.reload(), 1500);
-        } else {
-            showError('Gagal memperbarui grup: ' + (result.error || 'Unknown error'));
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showError('Terjadi kesalahan sistem');
-    })
-    .finally(() => {
-        // Restore button
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = originalText;
-    });
-}
-
-// Initialize form handlers with proper modal management
-function initializeFormHandlers() {
-    // Contact forms
-    const addContactForm = document.getElementById('addContactForm');
-    if (addContactForm) {
-        addContactForm.addEventListener('submit', handleAddContact);
-    }
-    
-    const editContactForm = document.getElementById('editContactForm');
-    if (editContactForm) {
-        editContactForm.addEventListener('submit', handleEditContact);
-    }
-    
-    // Group forms
-    const addGroupForm = document.getElementById('addGroupForm');
-    if (addGroupForm) {
-        addGroupForm.addEventListener('submit', handleAddGroup);
-    }
-    
-    const editGroupForm = document.getElementById('editGroupForm');
-    if (editGroupForm) {
-        editGroupForm.addEventListener('submit', handleEditGroup);
-    }
-    
-    // User forms (if available)
-    const addUserForm = document.getElementById('addUserForm');
-    if (addUserForm) {
-        addUserForm.addEventListener('submit', handleAddUser);
-    }
-    
-    const editUserForm = document.getElementById('editUserForm');
-    if (editUserForm) {
-        editUserForm.addEventListener('submit', handleEditUser);
-    }
-    
-    // Notification form
-    const notificationForm = document.getElementById('notificationForm');
-    if (notificationForm) {
-        notificationForm.addEventListener('submit', handleNotificationSubmit);
-    }
-}
-
-// Fixed success/error message functions
-function showSuccess(message) {
-    console.log('Showing success message:', message);
-    
-    const messageElement = document.getElementById('successMessage');
-    if (messageElement) {
-        messageElement.textContent = message;
-        showModal('successModal');
-    } else {
-        // Fallback to alert
-        alert('Success: ' + message);
-    }
-}
-
-function showError(message) {
-    console.log('Showing error message:', message);
-    
-    const messageElement = document.getElementById('errorMessage');
-    if (messageElement) {
-        messageElement.textContent = message;
-        showModal('errorModal');
-    } else {
-        // Fallback to alert
-        alert('Error: ' + message);
-    }
-}
-
-// Add event listeners for modal close buttons
+// Event listeners for modal close buttons and ESC key
 document.addEventListener('DOMContentLoaded', function() {
     // Handle close buttons with data-modal-hide attribute
     document.querySelectorAll('[data-modal-hide]').forEach(button => {
@@ -1066,20 +1003,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const modalId = this.getAttribute('data-modal-hide');
             hideModal(modalId);
         });
-    });
-    
-    // Handle backdrop clicks to close modals
-    document.addEventListener('click', function(e) {
-        if (e.target.classList.contains('fixed') && e.target.classList.contains('inset-0')) {
-            // Check if this is a modal backdrop
-            const modal = e.target.querySelector('[role="dialog"]') || e.target.closest('[role="dialog"]');
-            if (modal) {
-                const modalId = modal.id;
-                if (modalId) {
-                    hideModal(modalId);
-                }
-            }
-        }
     });
     
     // Handle ESC key to close modals
@@ -1096,71 +1019,5 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
-
-// Delete functions with proper confirmation
-function deleteContact(id) {
-    if (confirm('Apakah Anda yakin ingin menghapus kontak ini?')) {
-        console.log('Deleting contact:', id);
-        
-        fetch(`api.php/contact/${id}`, {
-            method: 'DELETE'
-        })
-        .then(response => response.json())
-        .then(result => {
-            if (result.success) {
-                showSuccess('Kontak berhasil dihapus');
-                setTimeout(() => location.reload(), 1500);
-            } else {
-                showError('Gagal menghapus kontak: ' + (result.error || 'Unknown error'));
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showError('Terjadi kesalahan sistem');
-        });
-    }
-}
-
-function deleteGroup(id) {
-    if (confirm('Apakah Anda yakin ingin menghapus grup ini?')) {
-        console.log('Deleting group:', id);
-        
-        fetch(`api.php/group/${id}`, {
-            method: 'DELETE'
-        })
-        .then(response => response.json())
-        .then(result => {
-            if (result.success) {
-                showSuccess('Grup berhasil dihapus');
-                setTimeout(() => location.reload(), 1500);
-            } else {
-                showError('Gagal menghapus grup: ' + (result.error || 'Unknown error'));
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showError('Terjadi kesalahan sistem');
-        });
-    }
-}
-
-// Debug function to check modal states
-function debugModals() {
-    console.log('=== Modal Debug Info ===');
-    console.log('Available modal instances:', Object.keys(window.modalInstances));
-    
-    Object.keys(window.modalInstances).forEach(modalId => {
-        const element = document.getElementById(modalId);
-        const instance = window.modalInstances[modalId];
-        console.log(`${modalId}:`, {
-            element: !!element,
-            instance: !!instance,
-            visible: element ? !element.classList.contains('hidden') : false
-        });
-    });
-}
-
-// Make debug function available globally
-window.debugModals = debugModals;
 
 console.log('Modal management system loaded successfully');

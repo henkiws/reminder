@@ -2,9 +2,9 @@
 // config/database.php - Updated for localhost testing
 class Database {
     private $host = 'localhost';
-    private $db_name = 'kemenkum_reminder';
+    private $db_name = 'henki_reminder';
     private $username = 'root';
-    private $password = 'Database@123.';
+    private $password = '';
     public $conn;
 
     public function getConnection() {
