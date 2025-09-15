@@ -110,7 +110,11 @@
                 
                 <!-- Action Buttons -->
                 <div class="flex space-x-2">
-                    
+                    <button onclick="useTemplate('<?php echo htmlspecialchars($template['message_template'], ENT_QUOTES); ?>')" 
+                            class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center"
+                            title="Gunakan Template">
+                        <i class="fas fa-copy mr-2"></i>Gunakan
+                    </button>
                     
                     <button onclick="previewTemplate('<?php echo htmlspecialchars($template['message_template'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($template['title'], ENT_QUOTES); ?>')" 
                             class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
