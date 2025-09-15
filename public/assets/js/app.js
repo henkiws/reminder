@@ -1,143 +1,307 @@
-// public/assets/js/app.js - FIXED VERSION
+// public/assets/js/app.js - ENHANCED VERSION WITH SMOOTH MODALS
+
+// Global state management
+window.app = {
+    modals: {},
+    forms: {},
+    state: {
+        currentUser: null,
+        notifications: [],
+        contacts: [],
+        groups: [],
+        templates: []
+    }
+};
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
-    initializeAllModals();
+    console.log('🚀 Initializing WhatsApp Notification System...');
+    
+    initializeModalSystem();
     initializeFormHandlers();
     initializeTemplateSelector();
     initializeSendToTypeHandler();
     initializeRepeatOptions();
-    setDefaultDateTime();
     initializePhoneFormatting();
     initializeTabHandling();
-    console.log('Application initialized successfully');
+    setDefaultDateTime();
+    
+    console.log('✅ Application initialized successfully');
 });
 
-// Set default date and time to now
-function setDefaultDateTime() {
-    const now = new Date();
-    const date = now.toISOString().split('T')[0];
-    const time = now.toTimeString().slice(0, 5);
+// ENHANCED MODAL MANAGEMENT SYSTEM
+function initializeModalSystem() {
+    console.log('🔧 Initializing modal system...');
     
-    const dateInput = document.getElementById('scheduled_date');
-    const timeInput = document.getElementById('scheduled_time');
-    
-    if (dateInput) dateInput.value = date;
-    if (timeInput) timeInput.value = time;
-}
-
-// Initialize all modals
-function initializeAllModals() {
-    // List of all modal IDs used in the system
-    const modalIds = [
-        'addContactModal',
-        'editContactModal', 
-        'addGroupModal',
-        'editGroupModal',
-        'addUserModal',
-        'editUserModal',
-        'userActivityModal',
-        'previewModal',
-        'successModal',
-        'errorModal',
-        'addTemplateModal',
-        'editTemplateModal'
+    // List of all modals in the system
+    const modalConfigs = [
+        { id: 'addContactModal', backdrop: true, keyboard: true },
+        { id: 'editContactModal', backdrop: true, keyboard: true },
+        { id: 'addGroupModal', backdrop: true, keyboard: true },
+        { id: 'editGroupModal', backdrop: true, keyboard: true },
+        { id: 'addTemplateModal', backdrop: true, keyboard: true },
+        { id: 'editTemplateModal', backdrop: true, keyboard: true },
+        { id: 'addUserModal', backdrop: true, keyboard: true },
+        { id: 'editUserModal', backdrop: true, keyboard: true },
+        { id: 'userActivityModal', backdrop: true, keyboard: true },
+        { id: 'previewModal', backdrop: true, keyboard: true },
+        { id: 'successModal', backdrop: 'static', keyboard: false },
+        { id: 'errorModal', backdrop: 'static', keyboard: false },
+        { id: 'confirmModal', backdrop: 'static', keyboard: false }
     ];
     
-    // Initialize global modal instances storage
-    if (!window.modalInstances) {
-        window.modalInstances = {};
-    }
-    
-    modalIds.forEach(modalId => {
-        const modalElement = document.getElementById(modalId);
-        if (modalElement) {
+    // Initialize all modals
+    modalConfigs.forEach(config => {
+        const element = document.getElementById(config.id);
+        if (element) {
             try {
-                const modalInstance = new Modal(modalElement, {
-                    backdrop: 'dynamic',
-                    backdropClasses: 'bg-gray-900 bg-opacity-50 dark:bg-opacity-80 fixed inset-0 z-40',
-                    closable: true,
-                    onHide: () => {
-                        console.log('Modal ' + modalId + ' is hidden');
-                    },
+                const modal = new Modal(element, {
+                    backdrop: config.backdrop,
+                    keyboard: config.keyboard,
+                    focus: true,
+                    placement: 'center',
                     onShow: () => {
-                        console.log('Modal ' + modalId + ' is shown');
+                        console.log(`📱 Modal opened: ${config.id}`);
+                        document.body.style.overflow = 'hidden';
+                        
+                        // Auto-focus first input
+                        setTimeout(() => {
+                            const firstInput = element.querySelector('input:not([type="hidden"]), textarea, select');
+                            if (firstInput) firstInput.focus();
+                        }, 150);
+                    },
+                    onHide: () => {
+                        console.log(`📱 Modal closed: ${config.id}`);
+                        document.body.style.overflow = '';
+                        
+                        // Clear form errors
+                        clearFormErrors(element);
                     }
                 });
                 
-                window.modalInstances[modalId] = modalInstance;
-                console.log('Initialized modal:', modalId);
+                window.app.modals[config.id] = modal;
+                console.log(`✅ Modal initialized: ${config.id}`);
             } catch (error) {
-                console.error('Error initializing modal:', modalId, error);
+                console.error(`❌ Error initializing modal ${config.id}:`, error);
+            }
+        }
+    });
+    
+    // Setup global modal event handlers
+    setupModalEventHandlers();
+}
+
+function setupModalEventHandlers() {
+    // Handle close buttons with data-modal-hide
+    document.addEventListener('click', function(e) {
+        const hideButton = e.target.closest('[data-modal-hide]');
+        if (hideButton) {
+            const modalId = hideButton.getAttribute('data-modal-hide');
+            hideModal(modalId);
+        }
+        
+        // Handle show buttons
+        const showButton = e.target.closest('[data-modal-target]');
+        if (showButton) {
+            const modalId = showButton.getAttribute('data-modal-target');
+            showModal(modalId);
+        }
+    });
+    
+    // Handle ESC key globally
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const openModals = Object.keys(window.app.modals).filter(modalId => {
+                const element = document.getElementById(modalId);
+                return element && !element.classList.contains('hidden');
+            });
+            
+            if (openModals.length > 0) {
+                hideModal(openModals[openModals.length - 1]); // Close topmost modal
             }
         }
     });
 }
 
-// Handle form submissions
-function initializeFormHandlers() {
-    // Notification form
-    const notificationForm = document.getElementById('notificationForm');
-    if (notificationForm) {
-        notificationForm.addEventListener('submit', handleNotificationSubmit);
-    }
-    
-    // Contact forms
-    const addContactForm = document.getElementById('addContactForm');
-    if (addContactForm) {
-        addContactForm.addEventListener('submit', handleAddContact);
-    }
-    
-    const editContactForm = document.getElementById('editContactForm');
-    if (editContactForm) {
-        editContactForm.addEventListener('submit', handleEditContact);
-    }
-    
-    // Group forms
-    const addGroupForm = document.getElementById('addGroupForm');
-    if (addGroupForm) {
-        addGroupForm.addEventListener('submit', handleAddGroup);
-    }
-    
-    const editGroupForm = document.getElementById('editGroupForm');
-    if (editGroupForm) {
-        editGroupForm.addEventListener('submit', handleEditGroup);
-    }
-    
-    // Template forms
-    const addTemplateForm = document.getElementById('addTemplateForm');
-    if (addTemplateForm) {
-        addTemplateForm.addEventListener('submit', handleAddTemplate);
-        
-        // Add variables preview for add form
-        const addMessageTextarea = document.getElementById('template_message');
-        if (addMessageTextarea) {
-            addMessageTextarea.addEventListener('input', function() {
-                updateVariablesPreview(this);
-            });
+// Enhanced modal functions
+function showModal(modalId) {
+    const modal = window.app.modals[modalId];
+    if (modal) {
+        try {
+            modal.show();
+            return true;
+        } catch (error) {
+            console.error(`❌ Error showing modal ${modalId}:`, error);
+            return false;
         }
-    }
-    
-    const editTemplateForm = document.getElementById('editTemplateForm');
-    if (editTemplateForm) {
-        editTemplateForm.addEventListener('submit', handleEditTemplate);
-    }
-    
-    // User forms (if available)
-    const addUserForm = document.getElementById('addUserForm');
-    if (addUserForm) {
-        addUserForm.addEventListener('submit', handleAddUser);
-    }
-    
-    const editUserForm = document.getElementById('editUserForm');
-    if (editUserForm) {
-        editUserForm.addEventListener('submit', handleEditUser);
+    } else {
+        console.warn(`⚠️ Modal not found: ${modalId}`);
+        return false;
     }
 }
 
-// Handle notification form submission
+function hideModal(modalId) {
+    const modal = window.app.modals[modalId];
+    if (modal) {
+        try {
+            modal.hide();
+            return true;
+        } catch (error) {
+            console.error(`❌ Error hiding modal ${modalId}:`, error);
+            return false;
+        }
+    } else {
+        console.warn(`⚠️ Modal not found: ${modalId}`);
+        return false;
+    }
+}
+
+function hideAllModals() {
+    Object.keys(window.app.modals).forEach(modalId => {
+        hideModal(modalId);
+    });
+}
+
+// ENHANCED FORM HANDLING SYSTEM
+function initializeFormHandlers() {
+    console.log('📋 Initializing form handlers...');
+    
+    const formConfigs = [
+        { id: 'notificationForm', handler: handleNotificationSubmit },
+        { id: 'addContactForm', handler: handleAddContact },
+        { id: 'editContactForm', handler: handleEditContact },
+        { id: 'addGroupForm', handler: handleAddGroup },
+        { id: 'editGroupForm', handler: handleEditGroup },
+        { id: 'addTemplateForm', handler: handleAddTemplate },
+        { id: 'editTemplateForm', handler: handleEditTemplate },
+        { id: 'addUserForm', handler: handleAddUser },
+        { id: 'editUserForm', handler: handleEditUser }
+    ];
+    
+    formConfigs.forEach(config => {
+        const form = document.getElementById(config.id);
+        if (form) {
+            form.addEventListener('submit', config.handler);
+            
+            // Add real-time validation
+            addFormValidation(form);
+            
+            console.log(`✅ Form handler added: ${config.id}`);
+        }
+    });
+}
+
+function addFormValidation(form) {
+    const inputs = form.querySelectorAll('input, textarea, select');
+    
+    inputs.forEach(input => {
+        input.addEventListener('blur', function() {
+            validateField(this);
+        });
+        
+        input.addEventListener('input', function() {
+            if (this.classList.contains('error')) {
+                validateField(this);
+            }
+        });
+    });
+}
+
+function validateField(field) {
+    const value = field.value.trim();
+    let isValid = true;
+    let errorMessage = '';
+    
+    // Required field validation
+    if (field.hasAttribute('required') && !value) {
+        isValid = false;
+        errorMessage = 'Field ini wajib diisi';
+    }
+    
+    // Email validation
+    if (field.type === 'email' && value) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(value)) {
+            isValid = false;
+            errorMessage = 'Format email tidak valid';
+        }
+    }
+    
+    // Phone validation
+    if (field.type === 'tel' && value) {
+        const phoneRegex = /^(\+?62|0)[0-9]{8,13}$/;
+        if (!phoneRegex.test(value.replace(/\s/g, ''))) {
+            isValid = false;
+            errorMessage = 'Format nomor telepon tidak valid';
+        }
+    }
+    
+    // Password validation
+    if (field.type === 'password' && value && value.length < 6) {
+        isValid = false;
+        errorMessage = 'Password minimal 6 karakter';
+    }
+    
+    // Show/hide error
+    showFieldError(field, isValid ? null : errorMessage);
+    
+    return isValid;
+}
+
+function showFieldError(field, errorMessage) {
+    // Remove existing error
+    const existingError = field.parentNode.querySelector('.field-error');
+    if (existingError) {
+        existingError.remove();
+    }
+    
+    field.classList.remove('error', 'border-red-500');
+    
+    if (errorMessage) {
+        field.classList.add('error', 'border-red-500');
+        
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'field-error text-red-500 text-xs mt-1';
+        errorDiv.textContent = errorMessage;
+        
+        field.parentNode.appendChild(errorDiv);
+    } else {
+        field.classList.add('border-green-500');
+        setTimeout(() => field.classList.remove('border-green-500'), 2000);
+    }
+}
+
+function clearFormErrors(container) {
+    const errors = container.querySelectorAll('.field-error');
+    errors.forEach(error => error.remove());
+    
+    const errorFields = container.querySelectorAll('.error');
+    errorFields.forEach(field => {
+        field.classList.remove('error', 'border-red-500');
+    });
+}
+
+function validateForm(form) {
+    const fields = form.querySelectorAll('input[required], textarea[required], select[required]');
+    let isValid = true;
+    
+    fields.forEach(field => {
+        if (!validateField(field)) {
+            isValid = false;
+        }
+    });
+    
+    return isValid;
+}
+
+// ENHANCED NOTIFICATION FORM HANDLING
 function handleNotificationSubmit(e) {
     e.preventDefault();
+    
+    if (!validateForm(e.target)) {
+        showError('Mohon perbaiki kesalahan pada form');
+        return;
+    }
     
     const formData = new FormData(e.target);
     const data = {};
@@ -171,7 +335,7 @@ function handleNotificationSubmit(e) {
         data.template_vars = templateVars;
     }
     
-    // Validate required fields
+    // Enhanced validation
     if (!data.title || !data.message || !data.send_to_type) {
         showError('Harap lengkapi semua field yang wajib diisi');
         return;
@@ -195,11 +359,21 @@ function handleNotificationSubmit(e) {
         return;
     }
     
-    // Show loading
+    // Validate schedule time
+    if (action === 'schedule') {
+        const scheduledDateTime = new Date(data.scheduled_date + ' ' + data.scheduled_time);
+        const now = new Date();
+        
+        if (scheduledDateTime <= now) {
+            showError('Waktu penjadwalan harus di masa depan');
+            return;
+        }
+    }
+    
+    // Show loading state
     const submitBtn = document.activeElement;
     const originalText = submitBtn.innerHTML;
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Memproses...';
+    setButtonLoading(submitBtn, true);
     
     // Send request
     fetch('api.php/notification', {
@@ -226,6 +400,7 @@ function handleNotificationSubmit(e) {
             e.target.reset();
             setDefaultDateTime();
             hideRecipientSections();
+            clearTemplateVariables();
             
             // Refresh page after 2 seconds
             setTimeout(() => location.reload(), 2000);
@@ -238,13 +413,111 @@ function handleNotificationSubmit(e) {
         showError('Terjadi kesalahan sistem');
     })
     .finally(() => {
-        // Restore button
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = originalText;
+        setButtonLoading(submitBtn, false, originalText);
     });
 }
 
-// Handle template selector
+// ENHANCED REPEAT SYSTEM
+function initializeRepeatOptions() {
+    const repeatSelect = document.getElementById('repeat_type');
+    const repeatOptions = document.getElementById('repeat-options');
+    const intervalContainer = document.getElementById('interval-container');
+    
+    if (repeatSelect && repeatOptions) {
+        repeatSelect.addEventListener('change', function() {
+            updateRepeatOptions(this.value);
+        });
+        
+        // Initialize with current value
+        updateRepeatOptions(repeatSelect.value);
+    }
+}
+
+function updateRepeatOptions(repeatType) {
+    const repeatOptions = document.getElementById('repeat-options');
+    const intervalSelect = document.getElementById('repeat_interval');
+    const unitSelect = document.getElementById('repeat_unit');
+    
+    if (!repeatOptions) return;
+    
+    if (repeatType === 'once') {
+        repeatOptions.classList.add('hidden');
+    } else {
+        repeatOptions.classList.remove('hidden');
+        
+        // Update interval options based on repeat type
+        if (intervalSelect) {
+            updateIntervalOptions(repeatType, intervalSelect);
+        }
+        
+        // Show/hide unit selector for custom repeat
+        if (unitSelect) {
+            if (repeatType === 'custom') {
+                unitSelect.parentElement.classList.remove('hidden');
+            } else {
+                unitSelect.parentElement.classList.add('hidden');
+            }
+        }
+    }
+}
+
+function updateIntervalOptions(repeatType, intervalSelect) {
+    const options = {
+        'daily': [
+            { value: 1, text: 'Setiap hari' },
+            { value: 2, text: 'Setiap 2 hari' },
+            { value: 3, text: 'Setiap 3 hari' },
+            { value: 7, text: 'Setiap minggu (7 hari)' }
+        ],
+        'weekly': [
+            { value: 1, text: 'Setiap minggu' },
+            { value: 2, text: 'Setiap 2 minggu' },
+            { value: 3, text: 'Setiap 3 minggu' },
+            { value: 4, text: 'Setiap bulan (4 minggu)' }
+        ],
+        'monthly': [
+            { value: 1, text: 'Setiap bulan' },
+            { value: 2, text: 'Setiap 2 bulan' },
+            { value: 3, text: 'Setiap 3 bulan (kuartal)' },
+            { value: 6, text: 'Setiap 6 bulan' },
+            { value: 12, text: 'Setiap tahun (12 bulan)' }
+        ],
+        'yearly': [
+            { value: 1, text: 'Setiap tahun' },
+            { value: 2, text: 'Setiap 2 tahun' },
+            { value: 5, text: 'Setiap 5 tahun' }
+        ],
+        'custom': [
+            { value: 1, text: '1' },
+            { value: 2, text: '2' },
+            { value: 3, text: '3' },
+            { value: 4, text: '4' },
+            { value: 5, text: '5' },
+            { value: 6, text: '6' },
+            { value: 7, text: '7' },
+            { value: 10, text: '10' },
+            { value: 14, text: '14' },
+            { value: 15, text: '15' },
+            { value: 30, text: '30' }
+        ]
+    };
+    
+    const currentValue = intervalSelect.value;
+    intervalSelect.innerHTML = '';
+    
+    const intervalOptions = options[repeatType] || options['custom'];
+    intervalOptions.forEach(option => {
+        const optionElement = document.createElement('option');
+        optionElement.value = option.value;
+        optionElement.textContent = option.text;
+        if (option.value == currentValue) {
+            optionElement.selected = true;
+        }
+        intervalSelect.appendChild(optionElement);
+    });
+}
+
+// TEMPLATE MANAGEMENT FUNCTIONS
 function initializeTemplateSelector() {
     const templateSelect = document.getElementById('template');
     const messageTextarea = document.getElementById('message');
@@ -258,64 +531,24 @@ function initializeTemplateSelector() {
                 
                 // Trigger variable inputs update
                 updateVariableInputs();
+                
+                // Show animation
+                messageTextarea.classList.add('border-green-500');
+                setTimeout(() => messageTextarea.classList.remove('border-green-500'), 1000);
             }
         });
     }
 }
 
-// Handle send to type changes
-function initializeSendToTypeHandler() {
-    const sendToRadios = document.querySelectorAll('input[name="send_to_type"]');
+function updateVariableInputs() {
+    const messageTextarea = document.getElementById('message');
+    if (!messageTextarea) return;
     
-    sendToRadios.forEach(radio => {
-        radio.addEventListener('change', function() {
-            const contactsSection = document.getElementById('contacts-section');
-            const groupsSection = document.getElementById('groups-section');
-            
-            if (contactsSection && groupsSection) {
-                // Hide all sections first
-                contactsSection.classList.add('hidden');
-                groupsSection.classList.add('hidden');
-                
-                // Show relevant sections
-                if (this.value === 'contact' || this.value === 'both') {
-                    contactsSection.classList.remove('hidden');
-                }
-                
-                if (this.value === 'group' || this.value === 'both') {
-                    groupsSection.classList.remove('hidden');
-                }
-            }
-        });
-    });
+    const message = messageTextarea.value;
+    const variables = extractTemplateVariables(message);
+    createVariableInputs(variables);
 }
 
-// Hide recipient sections
-function hideRecipientSections() {
-    const contactsSection = document.getElementById('contacts-section');
-    const groupsSection = document.getElementById('groups-section');
-    
-    if (contactsSection) contactsSection.classList.add('hidden');
-    if (groupsSection) groupsSection.classList.add('hidden');
-}
-
-// Handle repeat options
-function initializeRepeatOptions() {
-    const repeatSelect = document.getElementById('repeat_type');
-    const repeatOptions = document.getElementById('repeat-options');
-    
-    if (repeatSelect && repeatOptions) {
-        repeatSelect.addEventListener('change', function() {
-            if (this.value === 'once') {
-                repeatOptions.classList.add('hidden');
-            } else {
-                repeatOptions.classList.remove('hidden');
-            }
-        });
-    }
-}
-
-// Template Variables Functions
 function extractTemplateVariables(text) {
     const regex = /\{(\w+)\}/g;
     const variables = [];
@@ -346,6 +579,7 @@ function createVariableInputs(variables) {
     
     variables.forEach(variable => {
         const div = document.createElement('div');
+        div.className = 'variable-input-group';
         
         const label = document.createElement('label');
         label.className = 'block text-sm font-medium text-gray-700 mb-1';
@@ -353,17 +587,18 @@ function createVariableInputs(variables) {
         label.setAttribute('for', 'var_' + variable);
         
         let input;
-        if (variable === 'agenda' || variable === 'announcement') {
+        if (variable === 'agenda' || variable === 'announcement' || variable === 'description') {
             input = document.createElement('textarea');
             input.rows = 3;
+            input.className = 'bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block w-full p-2.5 resize-y';
         } else {
             input = document.createElement('input');
             input.type = getVariableInputType(variable);
+            input.className = 'bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block w-full p-2.5';
         }
         
         input.name = 'template_vars[' + variable + ']';
         input.id = 'var_' + variable;
-        input.className = 'bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block w-full p-2.5';
         input.placeholder = getVariablePlaceholder(variable);
         
         // Set default values for some variables
@@ -373,10 +608,31 @@ function createVariableInputs(variables) {
             input.value = new Date().toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'});
         }
         
-        div.appendChild(label);
-        div.appendChild(input);
+        // Add help text for some variables
+        const helpText = getVariableHelpText(variable);
+        if (helpText) {
+            const help = document.createElement('p');
+            help.className = 'text-xs text-gray-500 mt-1';
+            help.textContent = helpText;
+            div.appendChild(label);
+            div.appendChild(input);
+            div.appendChild(help);
+        } else {
+            div.appendChild(label);
+            div.appendChild(input);
+        }
+        
         grid.appendChild(div);
     });
+    
+    // Animate container appearance
+    container.style.opacity = '0';
+    container.style.transform = 'translateY(-10px)';
+    setTimeout(() => {
+        container.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+        container.style.opacity = '1';
+        container.style.transform = 'translateY(0)';
+    }, 50);
 }
 
 function getVariableLabel(variable) {
@@ -388,7 +644,15 @@ function getVariableLabel(variable) {
         'agenda': 'Agenda',
         'deadline_date': 'Tanggal Deadline',
         'deadline_time': 'Waktu Deadline',
-        'announcement': 'Teks Pengumuman'
+        'announcement': 'Teks Pengumuman',
+        'event_name': 'Nama Acara',
+        'task_title': 'Judul Tugas',
+        'task_description': 'Deskripsi Tugas',
+        'item': 'Item/Nama Tugas',
+        'reminder_text': 'Teks Pengingat',
+        'period': 'Periode',
+        'report_content': 'Isi Laporan',
+        'sender': 'Nama Pengirim'
     };
     return labels[variable] || variable.replace('_', ' ').toUpperCase();
 }
@@ -398,6 +662,10 @@ function getVariableInputType(variable) {
         return 'date';
     } else if (variable === 'time' || variable === 'deadline_time') {
         return 'time';
+    } else if (variable === 'email') {
+        return 'email';
+    } else if (variable === 'phone') {
+        return 'tel';
     }
     return 'text';
 }
@@ -411,42 +679,37 @@ function getVariablePlaceholder(variable) {
         'agenda': 'Contoh: Review Project Progress',
         'deadline_date': 'DD/MM/YYYY',
         'deadline_time': 'HH:MM',
-        'announcement': 'Teks pengumuman lengkap'
+        'announcement': 'Teks pengumuman lengkap',
+        'event_name': 'Nama acara atau kegiatan',
+        'task_title': 'Judul atau nama tugas',
+        'item': 'Nama item yang harus dikumpulkan',
+        'reminder_text': 'Teks pengingat',
+        'sender': 'Nama pengirim pesan'
     };
     return placeholders[variable] || 'Masukkan nilai untuk ' + variable;
 }
 
-function updateVariableInputs() {
-    const messageTextarea = document.getElementById('message');
-    if (!messageTextarea) return;
-    
-    const message = messageTextarea.value;
-    const variables = extractTemplateVariables(message);
-    createVariableInputs(variables);
+function getVariableHelpText(variable) {
+    const helpTexts = {
+        'name': 'Akan otomatis diisi dengan nama dari kontak',
+        'date': 'Format: DD/MM/YYYY',
+        'time': 'Format: HH:MM (24 jam)',
+        'deadline_date': 'Tanggal batas waktu',
+        'deadline_time': 'Waktu batas waktu'
+    };
+    return helpTexts[variable] || null;
 }
 
-// Event listener for message textarea changes
-document.addEventListener('DOMContentLoaded', function() {
-    const messageTextarea = document.getElementById('message');
-    const templateSelect = document.getElementById('template');
-    
-    if (messageTextarea) {
-        // Update when message changes
-        messageTextarea.addEventListener('input', updateVariableInputs);
-        
-        // Initial check
-        updateVariableInputs();
+function clearTemplateVariables() {
+    const container = document.getElementById('template-variables-container');
+    if (container) {
+        container.classList.add('hidden');
+        const grid = document.getElementById('template-variables-grid');
+        if (grid) grid.innerHTML = '';
     }
-    
-    if (templateSelect) {
-        // Update when template is selected
-        templateSelect.addEventListener('change', function() {
-            setTimeout(updateVariableInputs, 100); // Small delay to let template load
-        });
-    }
-});
+}
 
-// Function to preview message with variables filled
+// MESSAGE PREVIEW FUNCTION
 function previewMessage() {
     const messageTextarea = document.getElementById('message');
     if (!messageTextarea) return;
@@ -462,28 +725,34 @@ function previewMessage() {
         message = message.replace(new RegExp(`\\{${variable}\\}`, 'g'), value);
     });
     
-    // Show preview
-    const modal = document.getElementById('previewModal');
+    // Show preview with sample contact name
+    message = message.replace(/\{name\}/g, 'John Doe (Contoh)');
+    
+    // Show preview modal
     const previewContent = document.getElementById('previewContent');
     if (previewContent) {
         previewContent.innerHTML = message.replace(/\n/g, '<br>');
     }
     
-    // Show modal
     showModal('previewModal');
 }
 
-// Contact management functions
+// CONTACT MANAGEMENT FUNCTIONS
 function handleAddContact(e) {
     e.preventDefault();
+    
+    if (!validateForm(e.target)) {
+        return;
+    }
     
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData);
     
+    // Format phone number
+    data.phone = formatPhoneNumber(data.phone);
+    
     const submitBtn = e.target.querySelector('button[type="submit"]');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Menyimpan...';
+    setButtonLoading(submitBtn, true);
     
     fetch('api.php/contact', {
         method: 'POST',
@@ -508,21 +777,25 @@ function handleAddContact(e) {
         showError('Terjadi kesalahan sistem');
     })
     .finally(() => {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = originalText;
+        setButtonLoading(submitBtn, false);
     });
 }
 
 function handleEditContact(e) {
     e.preventDefault();
     
+    if (!validateForm(e.target)) {
+        return;
+    }
+    
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData);
     
+    // Format phone number
+    data.phone = formatPhoneNumber(data.phone);
+    
     const submitBtn = e.target.querySelector('button[type="submit"]');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Menyimpan...';
+    setButtonLoading(submitBtn, true);
     
     fetch('api.php/contact', {
         method: 'PUT',
@@ -546,8 +819,7 @@ function handleEditContact(e) {
         showError('Terjadi kesalahan sistem');
     })
     .finally(() => {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = originalText;
+        setButtonLoading(submitBtn, false);
     });
 }
 
@@ -559,38 +831,46 @@ function editContact(id, name, phone) {
     showModal('editContactModal');
 }
 
-function deleteContact(id) {
-    if (confirm('Apakah Anda yakin ingin menghapus kontak ini?')) {
-        fetch(`api.php/contact/${id}`, {
-            method: 'DELETE'
-        })
-        .then(response => response.json())
-        .then(result => {
-            if (result.success) {
-                showSuccess('Kontak berhasil dihapus');
-                setTimeout(() => location.reload(), 1500);
-            } else {
-                showError('Gagal menghapus kontak: ' + (result.error || 'Unknown error'));
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showError('Terjadi kesalahan sistem');
-        });
-    }
+function deleteContact(id, name) {
+    showConfirmModal(
+        'Hapus Kontak',
+        `Apakah Anda yakin ingin menghapus kontak "${name}"?`,
+        'Hapus',
+        'danger',
+        () => {
+            fetch(`api.php/contact/${id}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    showSuccess('Kontak berhasil dihapus');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showError('Gagal menghapus kontak: ' + (result.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showError('Terjadi kesalahan sistem');
+            });
+        }
+    );
 }
 
-// Group management functions
+// GROUP MANAGEMENT FUNCTIONS
 function handleAddGroup(e) {
     e.preventDefault();
+    
+    if (!validateForm(e.target)) {
+        return;
+    }
     
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData);
     
     const submitBtn = e.target.querySelector('button[type="submit"]');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Menyimpan...';
+    setButtonLoading(submitBtn, true);
     
     fetch('api.php/group', {
         method: 'POST',
@@ -615,21 +895,22 @@ function handleAddGroup(e) {
         showError('Terjadi kesalahan sistem');
     })
     .finally(() => {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = originalText;
+        setButtonLoading(submitBtn, false);
     });
 }
 
 function handleEditGroup(e) {
     e.preventDefault();
     
+    if (!validateForm(e.target)) {
+        return;
+    }
+    
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData);
     
     const submitBtn = e.target.querySelector('button[type="submit"]');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Menyimpan...';
+    setButtonLoading(submitBtn, true);
     
     fetch('api.php/group', {
         method: 'PUT',
@@ -653,8 +934,7 @@ function handleEditGroup(e) {
         showError('Terjadi kesalahan sistem');
     })
     .finally(() => {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = originalText;
+        setButtonLoading(submitBtn, false);
     });
 }
 
@@ -667,38 +947,52 @@ function editGroup(id, name, groupId, description) {
     showModal('editGroupModal');
 }
 
-function deleteGroup(id) {
-    if (confirm('Apakah Anda yakin ingin menghapus grup ini?')) {
-        fetch(`api.php/group/${id}`, {
-            method: 'DELETE'
-        })
-        .then(response => response.json())
-        .then(result => {
-            if (result.success) {
-                showSuccess('Grup berhasil dihapus');
-                setTimeout(() => location.reload(), 1500);
-            } else {
-                showError('Gagal menghapus grup: ' + (result.error || 'Unknown error'));
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showError('Terjadi kesalahan sistem');
-        });
-    }
+function deleteGroup(id, name) {
+    showConfirmModal(
+        'Hapus Grup',
+        `Apakah Anda yakin ingin menghapus grup "${name}"?`,
+        'Hapus',
+        'danger',
+        () => {
+            fetch(`api.php/group/${id}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    showSuccess('Grup berhasil dihapus');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showError('Gagal menghapus grup: ' + (result.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showError('Terjadi kesalahan sistem');
+            });
+        }
+    );
 }
 
-// Template management functions
+// TEMPLATE MANAGEMENT FUNCTIONS
 function handleAddTemplate(e) {
     e.preventDefault();
+    
+    if (!validateForm(e.target)) {
+        return;
+    }
     
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData);
     
+    // Extract variables from template
+    const variables = extractTemplateVariables(data.message_template);
+    if (variables.length > 0) {
+        data.variables = variables;
+    }
+    
     const submitBtn = e.target.querySelector('button[type="submit"]');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Menyimpan...';
+    setButtonLoading(submitBtn, true);
     
     fetch('api.php/template', {
         method: 'POST',
@@ -723,21 +1017,28 @@ function handleAddTemplate(e) {
         showError('Terjadi kesalahan sistem');
     })
     .finally(() => {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = originalText;
+        setButtonLoading(submitBtn, false);
     });
 }
 
 function handleEditTemplate(e) {
     e.preventDefault();
     
+    if (!validateForm(e.target)) {
+        return;
+    }
+    
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData);
     
+    // Extract variables from template
+    const variables = extractTemplateVariables(data.message_template);
+    if (variables.length > 0) {
+        data.variables = variables;
+    }
+    
     const submitBtn = e.target.querySelector('button[type="submit"]');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Menyimpan...';
+    setButtonLoading(submitBtn, true);
     
     fetch('api.php/template', {
         method: 'PUT',
@@ -761,8 +1062,7 @@ function handleEditTemplate(e) {
         showError('Terjadi kesalahan sistem');
     })
     .finally(() => {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = originalText;
+        setButtonLoading(submitBtn, false);
     });
 }
 
@@ -772,49 +1072,39 @@ function editTemplate(id, title, messageTemplate, categoryId) {
     document.getElementById('edit_template_message').value = messageTemplate;
     document.getElementById('edit_template_category').value = categoryId || '';
     
+    // Update variables preview
+    updateTemplateVariablesPreview(messageTemplate);
+    
     showModal('editTemplateModal');
 }
 
-function deleteTemplate(id) {
-    if (confirm('Apakah Anda yakin ingin menghapus template ini?')) {
-        fetch(`api.php/template/${id}`, {
-            method: 'DELETE'
-        })
-        .then(response => response.json())
-        .then(result => {
-            if (result.success) {
-                showSuccess('Template berhasil dihapus');
-                setTimeout(() => location.reload(), 1500);
-            } else {
-                showError('Gagal menghapus template: ' + (result.error || 'Unknown error'));
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showError('Terjadi kesalahan sistem');
-        });
-    }
+function deleteTemplate(id, title) {
+    showConfirmModal(
+        'Hapus Template',
+        `Apakah Anda yakin ingin menghapus template "${title}"?`,
+        'Hapus',
+        'danger',
+        () => {
+            fetch(`api.php/template/${id}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    showSuccess('Template berhasil dihapus');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showError('Gagal menghapus template: ' + (result.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showError('Terjadi kesalahan sistem');
+            });
+        }
+    );
 }
 
-function updateVariablesPreview(textarea) {
-    const message = textarea.value;
-    const variables = extractTemplateVariables(message);
-    const preview = document.getElementById('template-variables-preview');
-    const variablesList = document.getElementById('variables-list');
-    
-    if (!preview || !variablesList) return;
-    
-    if (variables.length > 0) {
-        preview.classList.remove('hidden');
-        variablesList.innerHTML = variables.map(variable => 
-            `<span class="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded">{${variable}}</span>`
-        ).join('');
-    } else {
-        preview.classList.add('hidden');
-    }
-}
-
-// Template functions
 function useTemplate(template) {
     const messageTextarea = document.getElementById('message');
     if (messageTextarea) {
@@ -829,150 +1119,477 @@ function useTemplate(template) {
             createTab.click();
         }
         
-        // Scroll to message field
+        // Scroll to message field with animation
         setTimeout(() => {
             messageTextarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
             messageTextarea.focus();
+            
+            // Add highlight effect
+            messageTextarea.classList.add('border-green-500', 'ring-2', 'ring-green-200');
+            setTimeout(() => {
+                messageTextarea.classList.remove('border-green-500', 'ring-2', 'ring-green-200');
+            }, 2000);
         }, 100);
     }
 }
 
-// Notification functions
-function sendNotificationNow(id) {
-    if (confirm('Apakah Anda yakin ingin mengirim notifikasi ini sekarang?')) {
-        fetch('api.php/send', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ notification_id: id })
-        })
-        .then(response => response.json())
-        .then(result => {
-            if (result.success) {
-                showSuccess(`Notifikasi berhasil dikirim ke ${result.sent} penerima`);
-                setTimeout(() => location.reload(), 2000);
-            } else {
-                showError('Gagal mengirim notifikasi: ' + result.error);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showError('Terjadi kesalahan sistem');
-        });
+function updateTemplateVariablesPreview(message) {
+    const variables = extractTemplateVariables(message);
+    const preview = document.getElementById('template-variables-preview');
+    const variablesList = document.getElementById('variables-list');
+    
+    if (preview && variablesList) {
+        if (variables.length > 0) {
+            preview.classList.remove('hidden');
+            variablesList.innerHTML = variables.map(variable => 
+                `<span class="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded">{${variable}}</span>`
+            ).join('');
+        } else {
+            preview.classList.add('hidden');
+        }
     }
+}
+
+// USER MANAGEMENT FUNCTIONS
+function handleAddUser(e) {
+    e.preventDefault();
+    
+    if (!validateForm(e.target)) {
+        return;
+    }
+    
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    setButtonLoading(submitBtn, true);
+    
+    fetch('api.php/user', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showSuccess('User berhasil ditambahkan');
+            e.target.reset();
+            hideModal('addUserModal');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showError('Gagal menambahkan user: ' + (result.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showError('Terjadi kesalahan sistem');
+    })
+    .finally(() => {
+        setButtonLoading(submitBtn, false);
+    });
+}
+
+function handleEditUser(e) {
+    e.preventDefault();
+    
+    if (!validateForm(e.target)) {
+        return;
+    }
+    
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    
+    // Convert checkbox to boolean
+    data.is_active = formData.has('is_active');
+    
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    setButtonLoading(submitBtn, true);
+    
+    fetch(`api.php/user/${data.id}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showSuccess('User berhasil diperbarui');
+            hideModal('editUserModal');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showError('Gagal memperbarui user: ' + (result.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showError('Terjadi kesalahan sistem');
+    })
+    .finally(() => {
+        setButtonLoading(submitBtn, false);
+    });
+}
+
+function editUser(id, fullName, email, username, isActive) {
+    document.getElementById('edit_user_id').value = id;
+    document.getElementById('edit_user_full_name').value = fullName;
+    document.getElementById('edit_user_email').value = email;
+    document.getElementById('edit_user_username').value = username;
+    document.getElementById('edit_user_active').checked = isActive;
+    
+    showModal('editUserModal');
+}
+
+function deleteUser(id, username) {
+    showConfirmModal(
+        'Hapus User',
+        `Apakah Anda yakin ingin menghapus user "${username}"?`,
+        'Hapus',
+        'danger',
+        () => {
+            fetch(`api.php/user/${id}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    showSuccess('User berhasil dihapus');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showError('Gagal menghapus user: ' + (result.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showError('Terjadi kesalahan sistem');
+            });
+        }
+    );
+}
+
+// NOTIFICATION FUNCTIONS
+function sendNotificationNow(id) {
+    showConfirmModal(
+        'Kirim Notifikasi',
+        'Apakah Anda yakin ingin mengirim notifikasi ini sekarang?',
+        'Kirim',
+        'primary',
+        () => {
+            fetch('api.php/send', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ notification_id: id })
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    showSuccess(`Notifikasi berhasil dikirim ke ${result.sent} penerima`);
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    showError('Gagal mengirim notifikasi: ' + result.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showError('Terjadi kesalahan sistem');
+            });
+        }
+    );
 }
 
 function viewNotificationDetails(id) {
     // This could open a modal with detailed notification info and logs
-    alert('Fitur detail notifikasi akan segera tersedia');
+    window.open(`notification-details.php?id=${id}`, '_blank');
 }
 
-// User management functions (placeholder)
-function showUserManagement() {
-    alert('Fitur manajemen user akan segera tersedia');
-}
-
-function showProfile() {
-    alert('Fitur profil pengguna akan segera tersedia');
-}
-
-// Modal management functions
-function showModal(modalId) {
-    console.log('Attempting to show modal:', modalId);
+// UTILITY FUNCTIONS
+function initializeSendToTypeHandler() {
+    const sendToRadios = document.querySelectorAll('input[name="send_to_type"]');
     
-    let modalInstance = window.modalInstances[modalId];
-    
-    if (!modalInstance) {
-        const modalElement = document.getElementById(modalId);
-        if (modalElement) {
-            modalInstance = new Modal(modalElement);
-            window.modalInstances[modalId] = modalInstance;
-            console.log('Created new modal instance for:', modalId);
-        } else {
-            console.error('Modal element not found:', modalId);
-            return false;
-        }
-    }
-    
-    try {
-        modalInstance.show();
-        return true;
-    } catch (error) {
-        console.error('Error showing modal:', modalId, error);
-        return false;
-    }
-}
-
-function hideModal(modalId) {
-    console.log('Attempting to hide modal:', modalId);
-    
-    const modalInstance = window.modalInstances[modalId];
-    if (modalInstance) {
-        try {
-            modalInstance.hide();
-            return true;
-        } catch (error) {
-            console.error('Error hiding modal:', modalId, error);
-            return false;
-        }
-    } else {
-        console.warn('Modal instance not found:', modalId);
-        return false;
-    }
-}
-
-// Utility functions
-function showSuccess(message) {
-    console.log('Showing success message:', message);
-    
-    const messageElement = document.getElementById('successMessage');
-    if (messageElement) {
-        messageElement.textContent = message;
-        showModal('successModal');
-    } else {
-        alert('Success: ' + message);
-    }
-}
-
-function showError(message) {
-    console.log('Showing error message:', message);
-    
-    const messageElement = document.getElementById('errorMessage');
-    if (messageElement) {
-        messageElement.textContent = message;
-        showModal('errorModal');
-    } else {
-        alert('Error: ' + message);
-    }
-}
-
-// Phone number formatting
-function formatPhoneNumber(input) {
-    let value = input.value.replace(/\D/g, '');
-    
-    // Remove leading zero and replace with 62
-    if (value.startsWith('0')) {
-        value = '62' + value.substring(1);
-    }
-    
-    // If doesn't start with 62, add it
-    if (!value.startsWith('62')) {
-        value = '62' + value;
-    }
-    
-    input.value = value;
-}
-
-// Initialize phone number formatting
-function initializePhoneFormatting() {
-    const phoneInputs = document.querySelectorAll('input[type="tel"]');
-    phoneInputs.forEach(input => {
-        input.addEventListener('blur', () => formatPhoneNumber(input));
+    sendToRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            const contactsSection = document.getElementById('contacts-section');
+            const groupsSection = document.getElementById('groups-section');
+            
+            if (contactsSection && groupsSection) {
+                // Hide all sections first
+                contactsSection.classList.add('hidden');
+                groupsSection.classList.add('hidden');
+                
+                // Show relevant sections with animation
+                if (this.value === 'contact' || this.value === 'both') {
+                    setTimeout(() => {
+                        contactsSection.classList.remove('hidden');
+                        contactsSection.style.opacity = '0';
+                        setTimeout(() => {
+                            contactsSection.style.transition = 'opacity 0.3s ease';
+                            contactsSection.style.opacity = '1';
+                        }, 50);
+                    }, 100);
+                }
+                
+                if (this.value === 'group' || this.value === 'both') {
+                    setTimeout(() => {
+                        groupsSection.classList.remove('hidden');
+                        groupsSection.style.opacity = '0';
+                        setTimeout(() => {
+                            groupsSection.style.transition = 'opacity 0.3s ease';
+                            groupsSection.style.opacity = '1';
+                        }, 50);
+                    }, 150);
+                }
+            }
+        });
     });
 }
 
-// Escape HTML to prevent XSS
+function hideRecipientSections() {
+    const contactsSection = document.getElementById('contacts-section');
+    const groupsSection = document.getElementById('groups-section');
+    
+    if (contactsSection) contactsSection.classList.add('hidden');
+    if (groupsSection) groupsSection.classList.add('hidden');
+}
+
+function setDefaultDateTime() {
+    const now = new Date();
+    const date = now.toISOString().split('T')[0];
+    const time = now.toTimeString().slice(0, 5);
+    
+    const dateInput = document.getElementById('scheduled_date');
+    const timeInput = document.getElementById('scheduled_time');
+    
+    if (dateInput && !dateInput.value) dateInput.value = date;
+    if (timeInput && !timeInput.value) timeInput.value = time;
+}
+
+function initializePhoneFormatting() {
+    const phoneInputs = document.querySelectorAll('input[type="tel"]');
+    phoneInputs.forEach(input => {
+        input.addEventListener('input', function() {
+            this.value = formatPhoneNumber(this.value);
+        });
+    });
+}
+
+function formatPhoneNumber(phone) {
+    // Remove all non-numeric characters
+    let cleaned = phone.replace(/\D/g, '');
+    
+    // Remove leading zero and replace with 62
+    if (cleaned.startsWith('0')) {
+        cleaned = '62' + cleaned.substring(1);
+    }
+    
+    // If doesn't start with 62, add it
+    if (!cleaned.startsWith('62') && cleaned.length > 0) {
+        cleaned = '62' + cleaned;
+    }
+    
+    return cleaned;
+}
+
+function initializeTabHandling() {
+    const tabButtons = document.querySelectorAll('[data-tabs-target]');
+    tabButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const target = this.getAttribute('data-tabs-target');
+            console.log('Tab clicked:', target);
+            
+            // Add active state animation
+            this.style.transform = 'scale(0.98)';
+            setTimeout(() => {
+                this.style.transform = 'scale(1)';
+            }, 100);
+        });
+    });
+}
+
+// ENHANCED UI FUNCTIONS
+function showSuccess(message) {
+    showNotificationModal('success', 'Berhasil!', message, 'fas fa-check-circle', 'text-green-500');
+}
+
+function showError(message) {
+    showNotificationModal('error', 'Terjadi Kesalahan!', message, 'fas fa-exclamation-circle', 'text-red-500');
+}
+
+function showNotificationModal(type, title, message, icon, iconClass) {
+    const modalId = type + 'Modal';
+    const titleElement = document.querySelector(`#${modalId} h3`);
+    const messageElement = document.querySelector(`#${modalId} #${type}Message`);
+    const iconElement = document.querySelector(`#${modalId} i`);
+    
+    if (titleElement) titleElement.textContent = title;
+    if (messageElement) messageElement.textContent = message;
+    if (iconElement) {
+        iconElement.className = icon + ' text-5xl';
+        iconElement.parentElement.className = iconElement.parentElement.className.replace(/text-\w+-\d+/, iconClass);
+    }
+    
+    showModal(modalId);
+    
+    // Auto-hide success messages after 3 seconds
+    if (type === 'success') {
+        setTimeout(() => {
+            hideModal(modalId);
+        }, 3000);
+    }
+}
+
+function showConfirmModal(title, message, confirmText, confirmType, onConfirm) {
+    // Create confirm modal if it doesn't exist
+    let confirmModal = document.getElementById('confirmModal');
+    if (!confirmModal) {
+        createConfirmModal();
+        confirmModal = document.getElementById('confirmModal');
+    }
+    
+    const titleElement = confirmModal.querySelector('h3');
+    const messageElement = confirmModal.querySelector('.confirm-message');
+    const confirmButton = confirmModal.querySelector('.confirm-button');
+    const cancelButton = confirmModal.querySelector('.cancel-button');
+    
+    if (titleElement) titleElement.textContent = title;
+    if (messageElement) messageElement.textContent = message;
+    if (confirmButton) {
+        confirmButton.textContent = confirmText;
+        
+        // Set button style based on type
+        const typeClasses = {
+            'primary': 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-300',
+            'danger': 'bg-red-600 hover:bg-red-700 focus:ring-red-300',
+            'warning': 'bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-300',
+            'success': 'bg-green-600 hover:bg-green-700 focus:ring-green-300'
+        };
+        
+        confirmButton.className = `text-white font-medium rounded-lg text-sm px-5 py-2.5 text-center confirm-button ${typeClasses[confirmType] || typeClasses.primary}`;
+        
+        // Remove existing event listeners
+        const newConfirmButton = confirmButton.cloneNode(true);
+        confirmButton.parentNode.replaceChild(newConfirmButton, confirmButton);
+        
+        // Add new event listener
+        newConfirmButton.addEventListener('click', function() {
+            hideModal('confirmModal');
+            if (typeof onConfirm === 'function') {
+                onConfirm();
+            }
+        });
+    }
+    
+    if (cancelButton) {
+        cancelButton.onclick = () => hideModal('confirmModal');
+    }
+    
+    showModal('confirmModal');
+}
+
+function createConfirmModal() {
+    const modalHTML = `
+        <div id="confirmModal" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+            <div class="relative p-4 w-full max-w-md max-h-full">
+                <div class="relative bg-white rounded-lg shadow">
+                    <div class="p-4 md:p-5 text-center">
+                        <div class="mx-auto mb-4 text-gray-400 w-12 h-12">
+                            <i class="fas fa-question-circle text-5xl"></i>
+                        </div>
+                        <h3 class="mb-5 text-lg font-normal text-gray-500">Konfirmasi</h3>
+                        <p class="mb-5 text-sm text-gray-500 confirm-message">Apakah Anda yakin?</p>
+                        <div class="flex justify-center space-x-4">
+                            <button type="button" class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 cancel-button">
+                                Batal
+                            </button>
+                            <button type="button" class="text-white bg-red-600 hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center confirm-button">
+                                Konfirmasi
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Initialize the modal
+    const modalElement = document.getElementById('confirmModal');
+    if (modalElement) {
+        const modal = new Modal(modalElement);
+        window.app.modals['confirmModal'] = modal;
+    }
+}
+
+function setButtonLoading(button, isLoading, originalText = null) {
+    if (isLoading) {
+        button.dataset.originalText = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Memproses...';
+    } else {
+        button.disabled = false;
+        button.innerHTML = originalText || button.dataset.originalText || button.innerHTML;
+    }
+}
+
+// ENHANCED EVENT LISTENERS
+document.addEventListener('DOMContentLoaded', function() {
+    // Add template message event listeners
+    const messageTextarea = document.getElementById('message');
+    if (messageTextarea) {
+        messageTextarea.addEventListener('input', updateVariableInputs);
+        updateVariableInputs(); // Initial check
+    }
+    
+    // Add template selector event listeners
+    const templateSelect = document.getElementById('template');
+    if (templateSelect) {
+        templateSelect.addEventListener('change', function() {
+            setTimeout(updateVariableInputs, 100);
+        });
+    }
+    
+    // Add template message event listeners for template forms
+    const templateMessageInputs = document.querySelectorAll('#template_message, #edit_template_message');
+    templateMessageInputs.forEach(input => {
+        input.addEventListener('input', function() {
+            updateTemplateVariablesPreview(this.value);
+        });
+    });
+    
+    // Add smooth scrolling to all anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) {
+                target.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }
+        });
+    });
+    
+    // Add loading animation to all buttons
+    document.querySelectorAll('button[type="submit"]').forEach(button => {
+        button.addEventListener('click', function() {
+            if (this.type === 'submit') {
+                setTimeout(() => {
+                    if (this.form && this.form.checkValidity()) {
+                        setButtonLoading(this, true);
+                    }
+                }, 100);
+            }
+        });
+    });
+});
+
+// DEBUGGING AND UTILITY FUNCTIONS
 function escapeHtml(text) {
     const map = {
         '&': '&amp;',
@@ -984,40 +1601,14 @@ function escapeHtml(text) {
     return text.replace(/[&<>"']/g, function(m) { return map[m]; });
 }
 
-// Handle tab changes
-function initializeTabHandling() {
-    const tabButtons = document.querySelectorAll('[data-tabs-target]');
-    tabButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const target = this.getAttribute('data-tabs-target');
-            console.log('Tab clicked:', target);
-        });
-    });
+function showUserManagement() {
+    alert('Fitur manajemen user akan segera tersedia');
 }
 
-// Event listeners for modal close buttons and ESC key
-document.addEventListener('DOMContentLoaded', function() {
-    // Handle close buttons with data-modal-hide attribute
-    document.querySelectorAll('[data-modal-hide]').forEach(button => {
-        button.addEventListener('click', function() {
-            const modalId = this.getAttribute('data-modal-hide');
-            hideModal(modalId);
-        });
-    });
-    
-    // Handle ESC key to close modals
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            // Find and close the topmost modal
-            for (const modalId in window.modalInstances) {
-                const modalElement = document.getElementById(modalId);
-                if (modalElement && !modalElement.classList.contains('hidden')) {
-                    hideModal(modalId);
-                    break;
-                }
-            }
-        }
-    });
-});
+function showProfile() {
+    alert('Fitur profil pengguna akan segera tersedia');
+}
 
-console.log('Modal management system loaded successfully');
+// Console log for debugging
+console.log('📱 WhatsApp Notification System JavaScript loaded successfully');
+console.log('🎯 Available functions:', Object.keys(window).filter(key => typeof window[key] === 'function'));
