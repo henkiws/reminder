@@ -1024,38 +1024,6 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
             }, 100);
         }
 
-        // ========== NOTIFICATION ACTIONS ==========
-        function sendNotificationNow(notificationId) {
-            showConfirmModal(
-                'Kirim Notifikasi Sekarang',
-                'Apakah Anda yakin ingin mengirim notifikasi ini sekarang?',
-                'Kirim Sekarang',
-                'primary',
-                () => {
-                    fetch('api.php/notification/send-now', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ id: notificationId })
-                    })
-                    .then(response => response.json())
-                    .then(result => {
-                        if (result.success) {
-                            showSuccess('Notifikasi berhasil dikirim');
-                            setTimeout(() => location.reload(), 1500);
-                        } else {
-                            showError('Gagal mengirim notifikasi: ' + result.error);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        showError('Terjadi kesalahan sistem');
-                    });
-                }
-            );
-        }
-
         function viewNotificationDetails(notificationId) {
             window.open(`notification-details.php?id=${notificationId}`, '_self');
         }

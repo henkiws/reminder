@@ -216,10 +216,10 @@ class NotificationManager {
     }
 
     // Add contact with user ownership
-    public function addContact($name, $phone, $userId = null) {
-        $query = "INSERT INTO contacts (name, phone, user_id) VALUES (?, ?, ?)";
+    public function addContact($name, $phone, $notes = '' ,$userId = null) {
+        $query = "INSERT INTO contacts (name, phone, notes, user_id) VALUES (?, ?, ?, ?)";
         $stmt = $this->conn->prepare($query);
-        return $stmt->execute([$name, $phone, $userId]);
+        return $stmt->execute([$name, $phone, $notes, $userId]);
     }
 
     // Add group with user ownership
@@ -243,14 +243,14 @@ class NotificationManager {
 
     // Delete contact
     public function deleteContact($id) {
-        $query = "UPDATE contacts SET is_active = 0 WHERE id = ?";
+        $query = "DELETE FROM contacts WHERE id = ?";
         $stmt = $this->conn->prepare($query);
         return $stmt->execute([$id]);
     }
 
     // Delete group
     public function deleteGroup($id) {
-        $query = "UPDATE `wa_groups` SET is_active = 0 WHERE id = ?";
+        $query = "DELETE FROM `wa_groups` WHERE id = ?";
         $stmt = $this->conn->prepare($query);
         return $stmt->execute([$id]);
     }

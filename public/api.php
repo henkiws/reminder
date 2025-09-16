@@ -409,7 +409,7 @@ function handlePutRequest($endpoint, $request, $notificationManager, $auth, $cur
             $input['phone'] = formatPhoneNumber($input['phone']);
             
             $query = "UPDATE contacts SET name = ?, phone = ?, notes = ?, updated_at = NOW() 
-                      WHERE id = ? AND (user_id = ? OR user_id IS NULL)";
+                      WHERE id = ? AND (user_id = ?)";
             $stmt = $db->prepare($query);
             $result = $stmt->execute([
                 $input['name'], 
