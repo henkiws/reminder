@@ -1,8 +1,9 @@
+Options -Indexes
 RewriteEngine On
 
-# Redirect everything to /public
+# Set default index
+DirectoryIndex index.php
+
+# Redirect everything to /public if not already there
 RewriteCond %{REQUEST_URI} !^/public
 RewriteRule ^(.*)$ public/$1 [L]
-
-# Optionally, set index
-DirectoryIndex public/index.php
