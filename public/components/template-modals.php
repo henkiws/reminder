@@ -135,10 +135,6 @@
                             class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 transition-colors">
                         Batal
                     </button>
-                    <button type="button" onclick="saveAndUseTemplate()" 
-                            class="text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center transition-colors">
-                        <i class="fas fa-plus mr-2"></i>Simpan & Gunakan
-                    </button>
                     <button type="submit" 
                             class="text-white inline-flex items-center bg-green-600 hover:bg-green-700 focus:ring-4 focus:outline-none focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center transition-colors">
                         <i class="fas fa-save mr-2"></i>
@@ -277,10 +273,6 @@
                     <button type="button" data-modal-hide="editTemplateModal" 
                             class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 transition-colors">
                         Batal
-                    </button>
-                    <button type="button" onclick="updateAndUseTemplate()" 
-                            class="text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center transition-colors">
-                        <i class="fas fa-plus mr-2"></i>Update & Gunakan
                     </button>
                     <button type="submit" 
                             class="text-white inline-flex items-center bg-green-600 hover:bg-green-700 focus:ring-4 focus:outline-none focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center transition-colors">
@@ -614,20 +606,54 @@ function updateAndUseTemplate() {
 }
 
 // Enhanced editTemplate function to populate the edit modal
-function editTemplate(id, title, messageTemplate, categoryId, usageCount, lastModified) {
-    document.getElementById('edit_template_id').value = id;
-    document.getElementById('edit_template_title').value = title;
-    document.getElementById('edit_template_message').value = messageTemplate;
-    document.getElementById('edit_template_category').value = categoryId || '';
-    
-    // Update statistics
-    document.getElementById('edit_usage_count').textContent = (usageCount || 0) + ' kali';
-    document.getElementById('edit_last_modified').textContent = lastModified || '-';
-    
-    // Update character count and variables
-    updateEditTemplateStats();
-    updateEditTemplateVariables();
-    
-    showModal('editTemplateModal');
+function editTemplate(id, title, messageTemplate, categoryId, usageCount = 0, lastModified = '') {
+    try {
+        console.log('Editing template:', id);
+        
+        // Validate required elements exist
+        const elements = {
+            'edit_template_id': document.getElementById('edit_template_id'),
+            'edit_template_title': document.getElementById('edit_template_title'),
+            'edit_template_message': document.getElementById('edit_template_message'),
+            'edit_template_category': document.getElementById('edit_template_category')
+        };
+        
+        // Check if all required elements exist
+        for (const [name, element] of Object.entries(elements)) {
+            if (!element) {
+                console.error(`Element not found: ${name}`);
+                showError('Form elements not found. Please refresh the page.');
+                return;
+            }
+        }
+        
+        // Set values
+        elements.edit_template_id.value = id;
+        elements.edit_template_title.value = title;
+        elements.edit_template_message.value = messageTemplate;
+        elements.edit_template_category.value = categoryId || '';
+        
+        // Update statistics
+        const usageCountEl = document.getElementById('edit_usage_count');
+        const lastModifiedEl = document.getElementById('edit_last_modified');
+        
+        if (usageCountEl) usageCountEl.textContent = (usageCount || 0) + ' kali';
+        if (lastModifiedEl) lastModifiedEl.textContent = lastModified || '-';
+        
+        // Update character count and variables
+        if (typeof updateEditTemplateStats === 'function') {
+            updateEditTemplateStats();
+        }
+        if (typeof updateEditTemplateVariables === 'function') {
+            updateEditTemplateVariables();
+        }
+        
+        // Show modal
+        showModal('editTemplateModal');
+        
+    } catch (error) {
+        console.error('Error in editTemplate:', error);
+        showError('An error occurred while opening the template editor.');
+    }
 }
 </script>

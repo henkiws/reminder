@@ -1527,12 +1527,41 @@ function createConfirmModal() {
 
 function setButtonLoading(button, isLoading, originalText = null) {
     if (isLoading) {
-        button.dataset.originalText = button.innerHTML;
+        // Store original text if not already stored
+        if (!button.dataset.originalText) {
+            button.dataset.originalText = button.innerHTML;
+        }
+        
+        // Clear any existing timeout
+        if (button.dataset.loadingTimeout) {
+            clearTimeout(button.dataset.loadingTimeout);
+        }
+        
         button.disabled = true;
         button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Memproses...';
+        
+        // Set auto-reset after 5 seconds
+        button.dataset.loadingTimeout = setTimeout(() => {
+            button.disabled = false;
+            button.innerHTML = button.dataset.originalText;
+            delete button.dataset.loadingTimeout;
+            delete button.dataset.originalText;
+        }, 5000);
+        
     } else {
+        // Clear the timeout if manually resetting before 5 seconds
+        if (button.dataset.loadingTimeout) {
+            clearTimeout(button.dataset.loadingTimeout);
+            delete button.dataset.loadingTimeout;
+        }
+        
         button.disabled = false;
         button.innerHTML = originalText || button.dataset.originalText || button.innerHTML;
+        
+        // Clean up stored data
+        if (button.dataset.originalText) {
+            delete button.dataset.originalText;
+        }
     }
 }
 
@@ -1599,14 +1628,6 @@ function escapeHtml(text) {
         "'": '&#039;'
     };
     return text.replace(/[&<>"']/g, function(m) { return map[m]; });
-}
-
-function showUserManagement() {
-    alert('Fitur manajemen user akan segera tersedia');
-}
-
-function showProfile() {
-    alert('Fitur profil pengguna akan segera tersedia');
 }
 
 // Console log for debugging

@@ -1,5 +1,5 @@
 <?php
-// components/groups.php - Enhanced Version
+// components/groups.php - Complete Enhanced Version with Fixed Search
 ?>
 
 <div class="bg-white p-6 rounded-lg shadow-lg">
@@ -20,26 +20,32 @@
         </div>
     </div>
     
-    <!-- Search and Filter -->
+    <!-- Enhanced Search and Filter Section -->
     <div class="mb-6 flex flex-col sm:flex-row gap-4">
         <div class="flex-1">
             <div class="relative">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <i class="fas fa-search text-gray-400"></i>
                 </div>
-                <input type="text" id="groupSearch" placeholder="Cari grup berdasarkan nama atau ID..." 
-                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block w-full pl-10 p-2.5">
+                <input type="text" 
+                       id="groupSearch" 
+                       placeholder="Cari grup berdasarkan nama atau ID..." 
+                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block w-full pl-10 pr-10 p-2.5 transition-colors">
+                <!-- Clear search button -->
+                <div class="absolute inset-y-0 right-0 flex items-center">
+                    <button type="button" 
+                            id="clearSearchBtn"
+                            onclick="clearSearch()" 
+                            class="hidden mr-3 text-gray-400 hover:text-gray-600 transition-colors"
+                            title="Hapus pencarian">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
             </div>
+            <!-- Search results count -->
+            <div id="searchResultsCount" class="mt-1 text-xs text-gray-500 hidden"></div>
         </div>
         <div class="flex gap-2">
-            <select id="groupFilter" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 p-2.5">
-                <option value="all">Semua Grup</option>
-                <option value="personal">Grup Pribadi</option>
-                <option value="shared">Grup Bersama</option>
-            </select>
-            <button type="button" onclick="testAllGroups()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition-colors">
-                <i class="fas fa-paper-plane mr-2"></i>Test Semua
-            </button>
             <button type="button" onclick="exportGroups()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition-colors">
                 <i class="fas fa-download mr-2"></i>Export
             </button>
@@ -53,9 +59,6 @@
                 <span id="selectedGroupCount">0</span> grup dipilih
             </span>
             <div class="flex space-x-2">
-                <button onclick="bulkTestGroups()" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm transition-colors">
-                    <i class="fas fa-paper-plane mr-1"></i>Test
-                </button>
                 <button onclick="bulkDeleteGroups()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm transition-colors">
                     <i class="fas fa-trash mr-1"></i>Hapus
                 </button>
@@ -85,7 +88,6 @@
                     <th scope="col" class="px-6 py-3">ID Grup</th>
                     <th scope="col" class="px-6 py-3">Deskripsi</th>
                     <th scope="col" class="px-6 py-3">Status</th>
-                    <th scope="col" class="px-6 py-3">Pemilik</th>
                     <th scope="col" class="px-6 py-3 cursor-pointer hover:bg-gray-100" onclick="sortGroupTable('created_at')">
                         <div class="flex items-center">
                             Ditambahkan
@@ -110,7 +112,7 @@
                                 <i class="fas fa-users"></i>
                             </div>
                             <div>
-                                <div class="font-medium text-gray-900"><?php echo htmlspecialchars($group['name']); ?></div>
+                                <div class="font-medium text-gray-900" data-searchable="name"><?php echo htmlspecialchars($group['name']); ?></div>
                                 <div class="text-xs text-gray-500 mt-1">
                                     <i class="fas fa-calendar mr-1"></i>
                                     Dibuat <?php echo date('d M Y', strtotime($group['created_at'])); ?>
@@ -119,10 +121,10 @@
                         </div>
                     </td>
                     <td class="px-6 py-4">
-                        <div class="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                        <div class="font-mono text-xs bg-gray-100 px-2 py-1 rounded" data-searchable="id">
                             <?php echo htmlspecialchars($group['group_id']); ?>
                         </div>
-                        <button onclick="copyToClipboard('<?php echo $group['group_id']; ?>')" 
+                        <button onclick="copyToClipboard('<?php echo htmlspecialchars($group['group_id'], ENT_QUOTES); ?>')" 
                                 class="text-xs text-blue-600 hover:text-blue-800 mt-1">
                             <i class="fas fa-copy mr-1"></i>Copy ID
                         </button>
@@ -143,57 +145,32 @@
                         </span>
                     </td>
                     <td class="px-6 py-4">
-                        <?php if ($group['user_id']): ?>
-                            <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded">
-                                <i class="fas fa-user mr-1"></i>Pribadi
-                            </span>
-                        <?php else: ?>
-                            <span class="bg-gray-100 text-gray-800 text-xs font-medium px-2 py-1 rounded">
-                                <i class="fas fa-globe mr-1"></i>Bersama
-                            </span>
-                        <?php endif; ?>
-                    </td>
-                    <td class="px-6 py-4">
                         <div class="text-sm"><?php echo date('d/m/Y', strtotime($group['created_at'])); ?></div>
                         <div class="text-xs text-gray-500"><?php echo date('H:i', strtotime($group['created_at'])); ?></div>
                     </td>
                     <td class="px-6 py-4">
                         <div class="flex space-x-2">
-                            <button onclick="sendTestGroupMessage(<?php echo $group['id']; ?>, '<?php echo htmlspecialchars($group['group_id']); ?>')" 
-                                    class="text-green-600 hover:text-green-900 transition-colors" title="Kirim Pesan Test">
-                                <i class="fas fa-paper-plane"></i>
-                            </button>
-                            <button onclick="getGroupInfo(<?php echo $group['id']; ?>, '<?php echo htmlspecialchars($group['group_id']); ?>')" 
-                                    class="text-blue-600 hover:text-blue-900 transition-colors" title="Info Grup">
-                                <i class="fas fa-info-circle"></i>
-                            </button>
-                            <button onclick="editGroup(<?php echo $group['id']; ?>, '<?php echo htmlspecialchars($group['name'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($group['group_id'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($group['description'] ?? '', ENT_QUOTES); ?>')" 
-                                    class="text-orange-600 hover:text-orange-900 transition-colors" title="Edit Grup">
+                            <button type="button"
+                                    class="text-blue-600 hover:text-blue-900 transition-colors edit-group-btn" 
+                                    data-group-id="<?php echo $group['id']; ?>"
+                                    data-group-name="<?php echo htmlspecialchars($group['name']); ?>"
+                                    data-group-whatsapp-id="<?php echo htmlspecialchars($group['group_id']); ?>"
+                                    data-group-description="<?php echo htmlspecialchars($group['description'] ?? ''); ?>"
+                                    title="Edit Grup">
                                 <i class="fas fa-edit"></i>
                             </button>
-                            <button onclick="deleteGroup(<?php echo $group['id']; ?>, '<?php echo htmlspecialchars($group['name'], ENT_QUOTES); ?>')" 
-                                    class="text-red-600 hover:text-red-900 transition-colors" title="Hapus Grup">
+                            <button type="button"
+                                    class="text-red-600 hover:text-red-900 transition-colors delete-group-btn"
+                                    data-group-id="<?php echo $group['id']; ?>"
+                                    data-group-name="<?php echo htmlspecialchars($group['name']); ?>"
+                                    title="Hapus Grup">
                                 <i class="fas fa-trash"></i>
                             </button>
-                            <div class="relative">
-                                <button onclick="toggleGroupMenu(<?php echo $group['id']; ?>)" 
-                                        class="text-gray-600 hover:text-gray-900 transition-colors" title="Menu Lainnya">
-                                    <i class="fas fa-ellipsis-v"></i>
-                                </button>
-                                <div id="groupMenu<?php echo $group['id']; ?>" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border">
-                                    <div class="py-1">
-                                        <button onclick="viewGroupHistory(<?php echo $group['id']; ?>)" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left">
-                                            <i class="fas fa-history mr-2"></i>Riwayat Pesan
-                                        </button>
-                                        <button onclick="getGroupMembers(<?php echo $group['id']; ?>)" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left">
-                                            <i class="fas fa-users mr-2"></i>Lihat Anggota
-                                        </button>
-                                        <button onclick="duplicateGroup(<?php echo $group['id']; ?>)" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left">
-                                            <i class="fas fa-clone mr-2"></i>Duplikasi
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+                            <button onclick="viewGroupHistory(<?php echo $group['id']; ?>)" 
+                                    class="text-gray-600 hover:text-gray-900 transition-colors" 
+                                    title="Riwayat Pesan">
+                                <i class="fas fa-history"></i>
+                            </button>
                         </div>
                     </td>
                 </tr>
@@ -390,29 +367,192 @@
 </div>
 
 <script>
-// Enhanced group management scripts
+// Complete Group Management JavaScript with Fixed Search
 document.addEventListener('DOMContentLoaded', function() {
     initializeGroupManagement();
 });
 
 function initializeGroupManagement() {
-    // Search functionality
+    initializeGroupSearch();
+    initializeGroupSelection();
+    initializeGroupMenus();
+    initializeGroupForms();
+}
+
+// ========== SEARCH FUNCTIONALITY ==========
+function initializeGroupSearch() {
     const searchInput = document.getElementById('groupSearch');
+    const clearBtn = document.getElementById('clearSearchBtn');
+    const filterSelect = document.getElementById('groupFilter');
+    
     if (searchInput) {
+        let searchTimeout;
+        
+        // Real-time search with debounce
         searchInput.addEventListener('input', function() {
-            filterGroups();
+            clearTimeout(searchTimeout);
+            const searchTerm = this.value.trim();
+            
+            // Show/hide clear button
+            if (clearBtn) {
+                if (searchTerm) {
+                    clearBtn.classList.remove('hidden');
+                } else {
+                    clearBtn.classList.add('hidden');
+                }
+            }
+            
+            // Debounced search
+            searchTimeout = setTimeout(() => {
+                filterGroups();
+                updateSearchResults();
+            }, 300);
+        });
+        
+        // Clear search on Escape
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                clearSearch();
+            }
         });
     }
     
-    // Filter functionality
-    const filterSelect = document.getElementById('groupFilter');
+    // Filter select
     if (filterSelect) {
         filterSelect.addEventListener('change', function() {
             filterGroups();
+            updateSearchResults();
         });
     }
+}
+
+function filterGroups() {
+    const searchInput = document.getElementById('groupSearch');
+    const filterSelect = document.getElementById('groupFilter');
+    const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+    const filterValue = filterSelect ? filterSelect.value : 'all';
+    const rows = document.querySelectorAll('.group-row');
     
-    // Select all functionality
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+        const nameElement = row.querySelector('[data-searchable="name"]');
+        const idElement = row.querySelector('[data-searchable="id"]');
+        const statusCell = row.querySelector('td:nth-child(5)');
+        
+        if (!nameElement || !idElement) return;
+        
+        const name = nameElement.textContent.toLowerCase();
+        const groupId = idElement.textContent.toLowerCase();
+        const isActive = statusCell && statusCell.textContent.toLowerCase().includes('aktif');
+        
+        let showRow = true;
+        
+        // Apply search filter
+        if (searchTerm && !name.includes(searchTerm) && !groupId.includes(searchTerm)) {
+            showRow = false;
+        }
+        
+        // Apply status filter
+        if (filterValue === 'active' && !isActive) {
+            showRow = false;
+        } else if (filterValue === 'recent') {
+            // Add logic for recent groups if needed
+        }
+        
+        if (showRow) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    
+    updateEmptyState(visibleCount, searchTerm);
+    updateBulkActionsAfterFilter();
+}
+
+function updateSearchResults() {
+    const searchInput = document.getElementById('groupSearch');
+    const resultsCount = document.getElementById('searchResultsCount');
+    const visibleRows = document.querySelectorAll('.group-row:not([style*="display: none"])');
+    const totalRows = document.querySelectorAll('.group-row');
+    
+    if (resultsCount && searchInput && searchInput.value.trim()) {
+        const count = visibleRows.length;
+        const total = totalRows.length;
+        
+        if (count === total) {
+            resultsCount.classList.add('hidden');
+        } else {
+            resultsCount.classList.remove('hidden');
+            resultsCount.textContent = `Menampilkan ${count} dari ${total} grup`;
+        }
+    } else if (resultsCount) {
+        resultsCount.classList.add('hidden');
+    }
+}
+
+function updateEmptyState(visibleCount, searchTerm) {
+    const tbody = document.getElementById('groupsTableBody');
+    const existingMessage = document.getElementById('noSearchResults');
+    
+    // Remove existing no-results message
+    if (existingMessage) {
+        existingMessage.remove();
+    }
+    
+    // Show no results message if no visible rows and search is active
+    if (visibleCount === 0 && searchTerm) {
+        const noResultsRow = document.createElement('tr');
+        noResultsRow.id = 'noSearchResults';
+        noResultsRow.innerHTML = `
+            <td colspan="7" class="px-6 py-12 text-center">
+                <div class="max-w-sm mx-auto">
+                    <i class="fas fa-search text-4xl text-gray-300 mb-4"></i>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">Tidak ada hasil</h3>
+                    <p class="text-gray-500 mb-4">
+                        Tidak ditemukan grup dengan kata kunci "<strong>${searchTerm}</strong>"
+                    </p>
+                    <div class="space-y-2">
+                        <button onclick="clearSearch()" class="text-blue-600 hover:text-blue-800 font-medium block mx-auto">
+                            <i class="fas fa-times mr-1"></i>Hapus pencarian
+                        </button>
+                        <button data-modal-target="addGroupModal" data-modal-toggle="addGroupModal" 
+                                class="text-green-600 hover:text-green-800 font-medium">
+                            <i class="fas fa-plus mr-1"></i>Tambah grup baru
+                        </button>
+                    </div>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(noResultsRow);
+    }
+}
+
+function clearSearch() {
+    const searchInput = document.getElementById('groupSearch');
+    const clearBtn = document.getElementById('clearSearchBtn');
+    const resultsCount = document.getElementById('searchResultsCount');
+    
+    if (searchInput) {
+        searchInput.value = '';
+        searchInput.focus();
+    }
+    
+    if (clearBtn) {
+        clearBtn.classList.add('hidden');
+    }
+    
+    if (resultsCount) {
+        resultsCount.classList.add('hidden');
+    }
+    
+    filterGroups();
+}
+
+// ========== SELECTION FUNCTIONALITY ==========
+function initializeGroupSelection() {
     const selectAllCheckbox = document.getElementById('selectAllGroups');
     if (selectAllCheckbox) {
         selectAllCheckbox.addEventListener('change', function() {
@@ -427,47 +567,14 @@ function initializeGroupManagement() {
             updateGroupBulkActions();
         });
     });
-    
-    // Close group menus when clicking outside
-    document.addEventListener('click', function(e) {
-        if (!e.target.closest('[id^="groupMenu"]') && !e.target.closest('button[onclick*="toggleGroupMenu"]')) {
-            closeAllGroupMenus();
-        }
-    });
-}
-
-function filterGroups() {
-    const searchTerm = document.getElementById('groupSearch').value.toLowerCase();
-    const filterValue = document.getElementById('groupFilter').value;
-    const rows = document.querySelectorAll('.group-row');
-    
-    rows.forEach(row => {
-        const name = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
-        const groupId = row.querySelector('td:nth-child(3)').textContent.toLowerCase();
-        const isPersonal = row.querySelector('.fa-user') !== null;
-        
-        let showRow = true;
-        
-        // Apply search filter
-        if (searchTerm && !name.includes(searchTerm) && !groupId.includes(searchTerm)) {
-            showRow = false;
-        }
-        
-        // Apply type filter
-        if (filterValue === 'personal' && !isPersonal) {
-            showRow = false;
-        } else if (filterValue === 'shared' && isPersonal) {
-            showRow = false;
-        }
-        
-        row.style.display = showRow ? '' : 'none';
-    });
 }
 
 function toggleSelectAllGroups(checked) {
     const checkboxes = document.querySelectorAll('.group-checkbox');
     checkboxes.forEach(checkbox => {
-        if (checkbox.closest('.group-row').style.display !== 'none') {
+        const row = checkbox.closest('.group-row');
+        // Only affect visible rows
+        if (row && row.style.display !== 'none') {
             checkbox.checked = checked;
         }
     });
@@ -475,13 +582,18 @@ function toggleSelectAllGroups(checked) {
 }
 
 function updateGroupBulkActions() {
-    const checkedBoxes = document.querySelectorAll('.group-checkbox:checked');
+    updateBulkActionsAfterFilter();
+}
+
+function updateBulkActionsAfterFilter() {
+    // Update bulk actions to only consider visible rows
+    const visibleCheckedBoxes = document.querySelectorAll('.group-row:not([style*="display: none"]) .group-checkbox:checked');
     const bulkActions = document.getElementById('groupBulkActions');
     const selectedCount = document.getElementById('selectedGroupCount');
     
-    if (checkedBoxes.length > 0) {
+    if (visibleCheckedBoxes.length > 0) {
         bulkActions.classList.remove('hidden');
-        selectedCount.textContent = checkedBoxes.length;
+        selectedCount.textContent = visibleCheckedBoxes.length;
     } else {
         bulkActions.classList.add('hidden');
     }
@@ -490,31 +602,22 @@ function updateGroupBulkActions() {
 function clearGroupSelection() {
     const checkboxes = document.querySelectorAll('.group-checkbox');
     checkboxes.forEach(checkbox => checkbox.checked = false);
-    document.getElementById('selectAllGroups').checked = false;
+    
+    const selectAllCheckbox = document.getElementById('selectAllGroups');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = false;
+    }
+    
     updateGroupBulkActions();
 }
 
-function sortGroupTable(column) {
-    const table = document.querySelector('table');
-    const tbody = table.querySelector('tbody');
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-    
-    let columnIndex;
-    switch (column) {
-        case 'name': columnIndex = 1; break;
-        case 'created_at': columnIndex = 6; break;
-        default: return;
-    }
-    
-    const sortedRows = rows.sort((a, b) => {
-        const aText = a.cells[columnIndex].textContent.trim();
-        const bText = b.cells[columnIndex].textContent.trim();
-        return aText.localeCompare(bText);
+// ========== MENU FUNCTIONALITY ==========
+function initializeGroupMenus() {
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('[id^="groupMenu"]') && !e.target.closest('button[onclick*="toggleGroupMenu"]')) {
+            closeAllGroupMenus();
+        }
     });
-    
-    // Clear tbody and append sorted rows
-    tbody.innerHTML = '';
-    sortedRows.forEach(row => tbody.appendChild(row));
 }
 
 function toggleGroupMenu(groupId) {
@@ -530,6 +633,146 @@ function closeAllGroupMenus() {
     menus.forEach(menu => menu.classList.add('hidden'));
 }
 
+// ========== FORM FUNCTIONALITY ==========
+function initializeGroupForms() {
+    // Edit group buttons
+    const editButtons = document.querySelectorAll('.edit-group-btn');
+    editButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const id = this.dataset.groupId;
+            const name = this.dataset.groupName;
+            const groupId = this.dataset.groupWhatsappId;
+            const description = this.dataset.groupDescription;
+            
+            editGroup(id, name, groupId, description);
+        });
+    });
+    
+    // Delete group buttons
+    const deleteButtons = document.querySelectorAll('.delete-group-btn');
+    deleteButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const id = this.dataset.groupId;
+            const name = this.dataset.groupName;
+            
+            deleteGroup(id, name);
+        });
+    });
+    
+    // Add group form
+    const addForm = document.getElementById('addGroupForm');
+    if (addForm) {
+        addForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            submitAddGroupForm();
+        });
+    }
+    
+    // Edit group form
+    const editForm = document.getElementById('editGroupForm');
+    if (editForm) {
+        editForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            submitEditGroupForm();
+        });
+    }
+}
+
+function editGroup(id, name, groupId, description) {
+    document.getElementById('edit_group_id').value = id;
+    document.getElementById('edit_group_name').value = name;
+    document.getElementById('edit_group_group_id').value = groupId;
+    document.getElementById('edit_group_description').value = description || '';
+    
+    showModal('editGroupModal');
+}
+
+function deleteGroup(id, name) {
+    showConfirmModal(
+        'Hapus Grup',
+        `Apakah Anda yakin ingin menghapus grup "${name}"?`,
+        'Hapus',
+        'danger',
+        () => {
+            fetch('api.php/group', {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ id: id })
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    showSuccess('Grup berhasil dihapus');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showError('Gagal menghapus grup: ' + result.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showError('Terjadi kesalahan sistem');
+            });
+        }
+    );
+}
+
+function submitAddGroupForm() {
+    const formData = new FormData(document.getElementById('addGroupForm'));
+    const data = Object.fromEntries(formData);
+    
+    fetch('api.php/group', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showSuccess('Grup berhasil ditambahkan');
+            hideModal('addGroupModal');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showError('Gagal menambahkan grup: ' + result.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showError('Terjadi kesalahan sistem');
+    });
+}
+
+function submitEditGroupForm() {
+    const formData = new FormData(document.getElementById('editGroupForm'));
+    const data = Object.fromEntries(formData);
+    
+    fetch('api.php/group', {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showSuccess('Grup berhasil diperbarui');
+            hideModal('editGroupModal');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showError('Gagal memperbarui grup: ' + result.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showError('Terjadi kesalahan sistem');
+    });
+}
+
+// ========== API FUNCTIONS ==========
 function sendTestGroupMessage(groupId, groupWaId) {
     showConfirmModal(
         'Kirim Pesan Test',
@@ -688,7 +931,6 @@ function getGroupList() {
     .then(response => response.json())
     .then(result => {
         if (result.success && result.groups) {
-            // Show group selection modal
             showGroupListModal(result.groups);
         } else {
             showError('Gagal mengambil daftar grup: ' + (result.error || 'API error'));
@@ -705,7 +947,6 @@ function getGroupList() {
 }
 
 function showGroupListModal(groups) {
-    // Create and show group list selection modal
     let modalHTML = `
         <div id="groupListModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
             <div class="bg-white rounded-lg shadow-lg max-w-2xl w-full m-4 max-h-96 overflow-hidden">
@@ -748,22 +989,37 @@ function closeGroupListModal() {
     }
 }
 
-function editGroup(id, name, groupId, description) {
-    document.getElementById('edit_group_id').value = id;
-    document.getElementById('edit_group_name').value = name;
-    document.getElementById('edit_group_group_id').value = groupId;
-    document.getElementById('edit_group_description').value = description || '';
+// ========== UTILITY FUNCTIONS ==========
+function sortGroupTable(column) {
+    const table = document.querySelector('table');
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr:not(#noSearchResults)'));
     
-    showModal('editGroupModal');
+    let columnIndex;
+    switch (column) {
+        case 'name': columnIndex = 1; break;
+        case 'created_at': columnIndex = 5; break;
+        default: return;
+    }
+    
+    const sortedRows = rows.sort((a, b) => {
+        const aText = a.cells[columnIndex].textContent.trim();
+        const bText = b.cells[columnIndex].textContent.trim();
+        return aText.localeCompare(bText);
+    });
+    
+    // Clear tbody and append sorted rows
+    tbody.innerHTML = '';
+    sortedRows.forEach(row => tbody.appendChild(row));
+    
+    // Re-apply filters
+    setTimeout(() => {
+        filterGroups();
+    }, 100);
 }
 
 function viewGroupHistory(groupId) {
-    window.open(`group-history.php?id=${groupId}`, '_blank');
-}
-
-function getGroupMembers(groupId) {
-    // Implementation for viewing group members
-    alert('Fitur lihat anggota grup akan segera tersedia');
+    window.open(`group-history.php?id=${groupId}`, '_self');
 }
 
 function duplicateGroup(groupId) {
@@ -778,25 +1034,6 @@ function duplicateGroup(groupId) {
     );
 }
 
-function testAllGroups() {
-    const groups = document.querySelectorAll('.group-row');
-    if (groups.length === 0) {
-        showError('Tidak ada grup untuk ditest');
-        return;
-    }
-    
-    showConfirmModal(
-        'Test Semua Grup',
-        `Kirim pesan test ke ${groups.length} grup?`,
-        'Kirim',
-        'primary',
-        () => {
-            // Implementation for testing all groups
-            alert('Fitur test semua grup akan segera tersedia');
-        }
-    );
-}
-
 function bulkTestGroups() {
     const checkedBoxes = document.querySelectorAll('.group-checkbox:checked');
     if (checkedBoxes.length === 0) return;
@@ -807,7 +1044,6 @@ function bulkTestGroups() {
         'Kirim',
         'primary',
         () => {
-            // Implementation for bulk testing groups
             alert('Fitur test grup massal akan segera tersedia');
         }
     );
@@ -852,4 +1088,22 @@ function bulkDeleteGroups() {
 function exportGroups() {
     window.open('api.php/groups/export?all=1', '_blank');
 }
+
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        showSuccess('ID grup berhasil disalin ke clipboard');
+    }).catch(function() {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        showSuccess('ID grup berhasil disalin');
+    });
+}
+
+// Note: Helper functions like showModal, hideModal, showConfirmModal, showSuccess, showError 
+// should be available globally from your main app.js file
 </script>

@@ -455,5 +455,106 @@ class NotificationManager {
         preg_match_all('/\{(\w+)\}/', $message, $matches);
         return array_unique($matches[1]);
     }
+
+    // Get notification by ID with user filtering
+    public function getNotificationById($id, $userId = null) {
+        if ($userId && !$this->hasAdminPermission()) {
+            // Regular user - only see their own notifications
+            $query = "SELECT sn.*, 
+                            COUNT(DISTINCT nc.id) as contact_count,
+                            COUNT(DISTINCT ng.id) as group_count,
+                            u.full_name as created_by_name
+                    FROM scheduled_notifications sn 
+                    LEFT JOIN notification_contacts nc ON sn.id = nc.notification_id
+                    LEFT JOIN notification_groups ng ON sn.id = ng.notification_id
+                    LEFT JOIN users u ON sn.user_id = u.id
+                    WHERE sn.id = ? AND sn.user_id = ?
+                    GROUP BY sn.id";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute([$id, $userId]);
+        } else {
+            // Admin - see all notifications
+            $query = "SELECT sn.*, 
+                            COUNT(DISTINCT nc.id) as contact_count,
+                            COUNT(DISTINCT ng.id) as group_count,
+                            u.full_name as created_by_name
+                    FROM scheduled_notifications sn 
+                    LEFT JOIN notification_contacts nc ON sn.id = nc.notification_id
+                    LEFT JOIN notification_groups ng ON sn.id = ng.notification_id
+                    LEFT JOIN users u ON sn.user_id = u.id
+                    WHERE sn.id = ?
+                    GROUP BY sn.id";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute([$id]);
+        }
+        
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        // If notification found, also get the associated contacts and groups
+        if ($result) {
+            $result['contacts'] = $this->getNotificationContacts($id);
+            $result['groups'] = $this->getNotificationGroups($id);
+        }
+        
+        return $result;
+    }
+
+    // Delete notification with user permission check
+    public function deleteNotification($id, $userId = null) {
+        try {
+            // First check if notification exists and user has permission to delete it
+            if ($userId && !$this->hasAdminPermission()) {
+                // Regular user - only delete their own notifications
+                $checkQuery = "SELECT id FROM scheduled_notifications WHERE id = ? AND user_id = ?";
+                $checkStmt = $this->conn->prepare($checkQuery);
+                $checkStmt->execute([$id, $userId]);
+                
+                if (!$checkStmt->fetch()) {
+                    return false; // Notification not found or access denied
+                }
+            } else {
+                // Admin - can delete any notification, but still check if it exists
+                $checkQuery = "SELECT id FROM scheduled_notifications WHERE id = ?";
+                $checkStmt = $this->conn->prepare($checkQuery);
+                $checkStmt->execute([$id]);
+                
+                if (!$checkStmt->fetch()) {
+                    return false; // Notification not found
+                }
+            }
+
+            $this->conn->beginTransaction();
+
+            // Soft delete the notification
+            $query = "DELETE FROM scheduled_notifications WHERE id = ?";
+            $stmt = $this->conn->prepare($query);
+            $result = $stmt->execute([$id]);
+
+            if ($result) {
+                // Also soft delete related notification_contacts and notification_groups
+                // This prevents orphaned references
+                $deleteContactsQuery = "DELETE FROM notification_contacts WHERE notification_id = ?";
+                $stmt = $this->conn->prepare($deleteContactsQuery);
+                $stmt->execute([$id]);
+
+                $deleteGroupsQuery = "DELETE FROM notification_groups WHERE notification_id = ?";
+                $stmt = $this->conn->prepare($deleteGroupsQuery);
+                $stmt->execute([$id]);
+
+                $this->conn->commit();
+                return true;
+            } else {
+                $this->conn->rollback();
+                return false;
+            }
+
+        } catch (Exception $e) {
+            $this->conn->rollback();
+            error_log("Error deleting notification: " . $e->getMessage());
+            return false;
+        }
+    }
 }
 ?>

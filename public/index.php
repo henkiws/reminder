@@ -116,13 +116,13 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
                     <ul class="py-2">
                         <?php if (hasPermission('user.read')): ?>
                         <li>
-                            <button onclick="showUserManagement()" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                 <i class="fas fa-users mr-2"></i>Manajemen User
                             </button>
                         </li>
                         <?php endif; ?>
                         <li>
-                            <button onclick="showProfile()" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                 <i class="fas fa-user mr-2"></i>Profil Saya
                             </button>
                         </li>
@@ -153,30 +153,28 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
                         <button class="inline-flex items-center p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300" id="notifications-tab" data-tabs-target="#notifications" type="button" role="tab" aria-controls="notifications" aria-selected="false">
                             <i class="fas fa-bell mr-2"></i>
                             <span>Notifikasi</span>
-                            <?php if ($stats['pending'] > 0): ?>
                             <span class="ml-2 bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-1 rounded-full"><?php echo $stats['pending']; ?></span>
-                            <?php endif; ?>
                         </button>
                     </li>
                     <li class="me-2" role="presentation">
                         <button class="inline-flex items-center p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300" id="contacts-tab" data-tabs-target="#contacts" type="button" role="tab" aria-controls="contacts" aria-selected="false">
                             <i class="fas fa-address-book mr-2"></i>
                             <span>Kontak</span>
-                            <span class="ml-2 text-xs text-gray-500">(<?php echo count($contacts); ?>)</span>
+                            <span class="ml-2 text-xs text-gray-500 px-2 py-1">(<?php echo count($contacts); ?>)</span>
                         </button>
                     </li>
                     <li class="me-2" role="presentation">
                         <button class="inline-flex items-center p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300" id="groups-tab" data-tabs-target="#groups" type="button" role="tab" aria-controls="groups" aria-selected="false">
                             <i class="fas fa-users-cog mr-2"></i>
                             <span>Grup</span>
-                            <span class="ml-2 text-xs text-gray-500">(<?php echo count($groups); ?>)</span>
+                            <span class="ml-2 text-xs text-gray-500 px-2 py-1">(<?php echo count($groups); ?>)</span>
                         </button>
                     </li>
                     <li class="me-2" role="presentation">
                         <button class="inline-flex items-center p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300" id="templates-tab" data-tabs-target="#templates" type="button" role="tab" aria-controls="templates" aria-selected="false">
                             <i class="fas fa-file-alt mr-2"></i>
                             <span>Template</span>
-                            <span class="ml-2 text-xs text-gray-500">(<?php echo count($templates); ?>)</span>
+                            <span class="ml-2 text-xs text-gray-500 px-2 py-1">(<?php echo count($templates); ?>)</span>
                         </button>
                     </li>
                 </ul>
@@ -192,17 +190,83 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
                 <!-- Enhanced Notifications List Tab -->
                 <div class="hidden p-4 rounded-lg bg-gray-50" id="notifications" role="tabpanel" aria-labelledby="notifications-tab">
                     <div class="bg-white p-6 rounded-lg shadow">
-                        <div class="flex justify-between items-center mb-6">
-                            <h3 class="text-lg font-semibold text-gray-900">Daftar Notifikasi</h3>
-                            <div class="flex space-x-2">
-                                <select class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 p-2.5">
-                                    <option value="">Semua Status</option>
-                                    <option value="pending">Pending</option>
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900">Daftar Notifikasi</h3>
+                                <p class="text-sm text-gray-600 mt-1">Kelola dan pantau semua notifikasi yang dijadwalkan</p>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <div class="bg-blue-50 px-3 py-2 rounded-lg text-sm">
+                                    <span class="font-medium text-blue-900"><?php echo count($notifications); ?></span>
+                                    <span class="text-blue-700">Total Notifikasi</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Enhanced Search and Filter Section -->
+                        <div class="mb-6 flex flex-col lg:flex-row gap-4">
+                            <div class="flex-1">
+                                <div class="relative">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <i class="fas fa-search text-gray-400"></i>
+                                    </div>
+                                    <input type="text" 
+                                           id="notificationSearch" 
+                                           placeholder="Cari notifikasi berdasarkan judul atau pesan..." 
+                                           class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block w-full pl-10 pr-10 p-2.5 transition-colors">
+                                    <!-- Clear search button -->
+                                    <div class="absolute inset-y-0 right-0 flex items-center">
+                                        <button type="button" 
+                                                id="clearNotificationSearchBtn"
+                                                onclick="clearNotificationSearch()" 
+                                                class="hidden mr-3 text-gray-400 hover:text-gray-600 transition-colors"
+                                                title="Hapus pencarian">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <!-- Search results count -->
+                                <div id="notificationSearchResultsCount" class="mt-1 text-xs text-gray-500 hidden"></div>
+                            </div>
+                            <div class="flex gap-2 flex-wrap">
+                                <select id="notificationStatusFilter" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 p-2.5">
+                                    <option value="all">Semua Status</option>
+                                    <option value="pending">Menunggu</option>
                                     <option value="sent">Terkirim</option>
                                     <option value="failed">Gagal</option>
+                                    <option value="cancelled">Dibatalkan</option>
+                                    <option value="completed">Selesai</option>
                                 </select>
-                                <button class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm">
-                                    <i class="fas fa-filter mr-2"></i>Filter
+                                <select id="notificationPriorityFilter" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 p-2.5">
+                                    <option value="all">Semua Prioritas</option>
+                                    <option value="low">Rendah</option>
+                                    <option value="normal">Normal</option>
+                                    <option value="high">Tinggi</option>
+                                    <option value="urgent">Mendesak</option>
+                                </select>
+                                <select id="notificationTypeFilter" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 p-2.5">
+                                    <option value="all">Semua Jenis</option>
+                                    <option value="once">Sekali</option>
+                                    <option value="daily">Harian</option>
+                                    <option value="weekly">Mingguan</option>
+                                    <option value="monthly">Bulanan</option>
+                                    <option value="yearly">Tahunan</option>
+                                </select>
+                                <button type="button" onclick="resetNotificationFilters()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm transition-colors">
+                                    <i class="fas fa-undo mr-2"></i>Reset
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Filter Summary -->
+                        <div id="filterSummary" class="hidden mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-blue-800">
+                                    <i class="fas fa-filter mr-2"></i>
+                                    Filter aktif: <span id="activeFiltersText"></span>
+                                </span>
+                                <button onclick="resetNotificationFilters()" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                    Hapus semua filter
                                 </button>
                             </div>
                         </div>
@@ -211,26 +275,47 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
                             <table class="w-full text-sm text-left text-gray-500">
                                 <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                                     <tr>
-                                        <th scope="col" class="px-6 py-3">Notifikasi</th>
-                                        <th scope="col" class="px-6 py-3">Jadwal</th>
+                                        <th scope="col" class="px-6 py-3 cursor-pointer hover:bg-gray-100" onclick="sortNotificationTable('title')">
+                                            <div class="flex items-center">
+                                                Notifikasi
+                                                <i class="fas fa-sort ml-1"></i>
+                                            </div>
+                                        </th>
+                                        <th scope="col" class="px-6 py-3 cursor-pointer hover:bg-gray-100" onclick="sortNotificationTable('scheduled_datetime')">
+                                            <div class="flex items-center">
+                                                Jadwal
+                                                <i class="fas fa-sort ml-1"></i>
+                                            </div>
+                                        </th>
                                         <th scope="col" class="px-6 py-3">Status</th>
                                         <th scope="col" class="px-6 py-3">Penerima</th>
-                                        <th scope="col" class="px-6 py-3">Prioritas</th>
+                                        <th scope="col" class="px-6 py-3 cursor-pointer hover:bg-gray-100" onclick="sortNotificationTable('priority')">
+                                            <div class="flex items-center">
+                                                Prioritas
+                                                <i class="fas fa-sort ml-1"></i>
+                                            </div>
+                                        </th>
                                         <th scope="col" class="px-6 py-3">Aksi</th>
                                     </tr>
                                 </thead>
-                                <tbody>
+                                <tbody id="notificationsTableBody">
                                     <?php foreach ($notifications as $notification): ?>
-                                    <tr class="bg-white border-b hover:bg-gray-50 notification-card">
+                                    <tr class="bg-white border-b hover:bg-gray-50 notification-card notification-row" 
+                                        data-notification-id="<?php echo $notification['id']; ?>"
+                                        data-status="<?php echo $notification['status']; ?>"
+                                        data-priority="<?php echo $notification['priority'] ?? 'normal'; ?>"
+                                        data-repeat-type="<?php echo $notification['repeat_type'] ?? 'once'; ?>">
                                         <td class="px-6 py-4">
-                                            <div class="font-medium text-gray-900"><?php echo htmlspecialchars($notification['title']); ?></div>
-                                            <div class="text-xs text-gray-500 mt-1">
+                                            <div class="font-medium text-gray-900" data-searchable="title"><?php echo htmlspecialchars($notification['title']); ?></div>
+                                            <div class="text-xs text-gray-500 mt-1" data-searchable="message">
                                                 <?php if ($notification['repeat_type'] != 'once'): ?>
                                                     <i class="fas fa-redo-alt mr-1"></i>
                                                     <?php echo ucfirst($notification['repeat_type']); ?>
                                                 <?php else: ?>
                                                     <i class="fas fa-clock mr-1"></i>Sekali
                                                 <?php endif; ?>
+                                                <!-- Show message preview for search -->
+                                                <span class="hidden"><?php echo htmlspecialchars(substr($notification['message_content'] ?? '', 0, 100)); ?></span>
                                             </div>
                                         </td>
                                         <td class="px-6 py-4">
@@ -285,34 +370,37 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
                                         <td class="px-6 py-4">
                                             <div class="flex space-x-2">
                                                 <?php if ($notification['status'] == 'pending'): ?>
-                                                    <button onclick="sendNotificationNow(<?php echo $notification['id']; ?>)" class="text-green-600 hover:text-green-900" title="Kirim Sekarang">
+                                                    <button onclick="sendNotificationNow(<?php echo $notification['id']; ?>)" class="text-green-600 hover:text-green-900 transition-colors" title="Kirim Sekarang">
                                                         <i class="fas fa-paper-plane"></i>
                                                     </button>
                                                 <?php endif; ?>
-                                                <button onclick="viewNotificationDetails(<?php echo $notification['id']; ?>)" class="text-blue-600 hover:text-blue-900" title="Lihat Detail">
+                                                <button onclick="viewNotificationDetails(<?php echo $notification['id']; ?>)" class="text-blue-600 hover:text-blue-900 transition-colors" title="Lihat Detail">
                                                     <i class="fas fa-eye"></i>
                                                 </button>
-                                                <button onclick="editNotification(<?php echo $notification['id']; ?>)" class="text-yellow-600 hover:text-yellow-900" title="Edit">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
+                                                <?php if (in_array($notification['status'], ['pending', 'failed'])): ?>
+                                                    <button onclick="deleteNotification(<?php echo $notification['id']; ?>)" class="text-red-600 hover:text-red-900 transition-colors" title="Hapus">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                <?php endif; ?>
                                             </div>
                                         </td>
                                     </tr>
                                     <?php endforeach; ?>
-                                    
-                                    <?php if (empty($notifications)): ?>
-                                    <tr>
-                                        <td colspan="6" class="px-6 py-8 text-center text-gray-500">
-                                            <div class="flex flex-col items-center">
-                                                <i class="fas fa-bell-slash text-4xl text-gray-300 mb-4"></i>
-                                                <p class="text-lg font-medium">Belum ada notifikasi</p>
-                                                <p class="text-sm">Buat notifikasi pertama Anda dengan mengklik tab "Buat Notifikasi"</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <?php endif; ?>
                                 </tbody>
                             </table>
+                            
+                            <?php if (empty($notifications)): ?>
+                            <div class="text-center py-12">
+                                <div class="max-w-sm mx-auto">
+                                    <i class="fas fa-bell-slash text-6xl text-gray-300 mb-4"></i>
+                                    <h3 class="text-lg font-medium text-gray-900 mb-2">Belum ada notifikasi</h3>
+                                    <p class="text-gray-500 mb-6">Buat notifikasi pertama Anda dengan mengklik tab "Buat Notifikasi"</p>
+                                    <button onclick="document.getElementById('create-tab').click()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                                        <i class="fas fa-plus mr-2"></i>Buat Notifikasi Pertama
+                                    </button>
+                                </div>
+                            </div>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -388,11 +476,12 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
                                         </div>
                                     </div>
                                     <div class="flex space-x-2">
-                                        <button onclick="useTemplate('<?php echo htmlspecialchars($template['message_template']); ?>')" class="bg-green-100 text-green-800 hover:bg-green-200 px-3 py-1 rounded text-sm font-medium transition-colors">
-                                            <i class="fas fa-copy mr-1"></i>Gunakan
-                                        </button>
                                         <?php if ($template['user_id'] == $currentUser['id'] || hasPermission('template.update')): ?>
-                                        <button onclick="editTemplate(<?php echo $template['id']; ?>, '<?php echo htmlspecialchars($template['title'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($template['message_template'], ENT_QUOTES); ?>', <?php echo $template['category_id'] ?: 'null'; ?>)" class="bg-blue-100 text-blue-800 hover:bg-blue-200 px-3 py-1 rounded text-sm font-medium transition-colors">
+                                        <button class="bg-blue-100 text-blue-800 hover:bg-blue-200 px-3 py-1 rounded text-sm font-medium transition-colors edit-template-btn"
+                                                data-template-id="<?php echo $template['id']; ?>"
+                                                data-template-title="<?php echo htmlspecialchars($template['title']); ?>"
+                                                data-template-message="<?php echo htmlspecialchars($template['message_template']); ?>"
+                                                data-template-category="<?php echo $template['category_id'] ?: ''; ?>">
                                             <i class="fas fa-edit mr-1"></i>Edit
                                         </button>
                                         <?php endif; ?>
@@ -487,9 +576,446 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
         </div>
     </div>
 
+    <!-- Confirm Modal -->
+    <div id="confirmModal" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+        <div class="relative p-4 w-full max-w-md max-h-full">
+            <div class="relative bg-white rounded-lg shadow">
+                <div class="p-4 md:p-5 text-center">
+                    <div class="mx-auto mb-4 text-gray-400 w-12 h-12">
+                        <i class="fas fa-question-circle text-5xl" id="confirmIcon"></i>
+                    </div>
+                    <h3 class="mb-5 text-lg font-normal text-gray-500" id="confirmTitle">Konfirmasi</h3>
+                    <p class="mb-5 text-sm text-gray-500" id="confirmMessage">Apakah Anda yakin?</p>
+                    <div class="flex justify-center space-x-4">
+                        <button data-modal-hide="confirmModal" type="button" class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10">
+                            Batal
+                        </button>
+                        <button id="confirmButton" type="button" class="text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm inline-flex items-center px-5 py-2.5 text-center">
+                            <span id="confirmButtonText">Konfirmasi</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="assets/js/app.js"></script>
     <script>
-        // Template filtering function
+        // Enhanced Notification Management JavaScript
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeNotificationManagement();
+            initializeTemplateManagement();
+            initializeTabSwitching();
+        });
+
+        function initializeNotificationManagement() {
+            initializeNotificationSearch();
+            initializeNotificationFilters();
+        }
+
+        // ========== NOTIFICATION SEARCH & FILTER FUNCTIONALITY ==========
+        function initializeNotificationSearch() {
+            const searchInput = document.getElementById('notificationSearch');
+            const clearBtn = document.getElementById('clearNotificationSearchBtn');
+            
+            if (searchInput) {
+                let searchTimeout;
+                
+                // Real-time search with debounce
+                searchInput.addEventListener('input', function() {
+                    clearTimeout(searchTimeout);
+                    const searchTerm = this.value.trim();
+                    
+                    // Show/hide clear button
+                    if (clearBtn) {
+                        if (searchTerm) {
+                            clearBtn.classList.remove('hidden');
+                        } else {
+                            clearBtn.classList.add('hidden');
+                        }
+                    }
+                    
+                    // Debounced search
+                    searchTimeout = setTimeout(() => {
+                        filterNotifications();
+                        updateNotificationSearchResults();
+                        updateFilterSummary();
+                    }, 300);
+                });
+                
+                // Clear search on Escape
+                searchInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape') {
+                        clearNotificationSearch();
+                    }
+                });
+            }
+        }
+
+        function initializeNotificationFilters() {
+            const statusFilter = document.getElementById('notificationStatusFilter');
+            const priorityFilter = document.getElementById('notificationPriorityFilter');
+            const typeFilter = document.getElementById('notificationTypeFilter');
+            
+            [statusFilter, priorityFilter, typeFilter].forEach(filter => {
+                if (filter) {
+                    filter.addEventListener('change', function() {
+                        filterNotifications();
+                        updateNotificationSearchResults();
+                        updateFilterSummary();
+                    });
+                }
+            });
+        }
+
+        function filterNotifications() {
+            const searchInput = document.getElementById('notificationSearch');
+            const statusFilter = document.getElementById('notificationStatusFilter');
+            const priorityFilter = document.getElementById('notificationPriorityFilter');
+            const typeFilter = document.getElementById('notificationTypeFilter');
+            
+            const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+            const statusValue = statusFilter ? statusFilter.value : 'all';
+            const priorityValue = priorityFilter ? priorityFilter.value : 'all';
+            const typeValue = typeFilter ? typeFilter.value : 'all';
+            
+            const rows = document.querySelectorAll('.notification-row');
+            let visibleCount = 0;
+            
+            rows.forEach(row => {
+                const titleElement = row.querySelector('[data-searchable="title"]');
+                const messageElement = row.querySelector('[data-searchable="message"]');
+                const status = row.dataset.status;
+                const priority = row.dataset.priority;
+                const repeatType = row.dataset.repeatType;
+                
+                if (!titleElement || !messageElement) return;
+                
+                const title = titleElement.textContent.toLowerCase();
+                const message = messageElement.textContent.toLowerCase();
+                
+                let showRow = true;
+                
+                // Apply search filter
+                if (searchTerm && !title.includes(searchTerm) && !message.includes(searchTerm)) {
+                    showRow = false;
+                }
+                
+                // Apply status filter
+                if (statusValue !== 'all' && status !== statusValue) {
+                    showRow = false;
+                }
+                
+                // Apply priority filter
+                if (priorityValue !== 'all' && priority !== priorityValue) {
+                    showRow = false;
+                }
+                
+                // Apply type filter
+                if (typeValue !== 'all' && repeatType !== typeValue) {
+                    showRow = false;
+                }
+                
+                if (showRow) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            
+            updateNotificationEmptyState(visibleCount, searchTerm, statusValue, priorityValue, typeValue);
+        }
+
+        function updateNotificationSearchResults() {
+            const resultsCount = document.getElementById('notificationSearchResultsCount');
+            const visibleRows = document.querySelectorAll('.notification-row:not([style*="display: none"])');
+            const totalRows = document.querySelectorAll('.notification-row');
+            
+            if (resultsCount) {
+                const count = visibleRows.length;
+                const total = totalRows.length;
+                
+                if (count === total) {
+                    resultsCount.classList.add('hidden');
+                } else {
+                    resultsCount.classList.remove('hidden');
+                    resultsCount.textContent = `Menampilkan ${count} dari ${total} notifikasi`;
+                }
+            }
+        }
+
+        function updateNotificationEmptyState(visibleCount, searchTerm, statusValue, priorityValue, typeValue) {
+            const tbody = document.getElementById('notificationsTableBody');
+            const existingMessage = document.getElementById('noNotificationResults');
+            
+            // Remove existing no-results message
+            if (existingMessage) {
+                existingMessage.remove();
+            }
+            
+            // Show no results message if no visible rows and filters are active
+            const hasActiveFilters = searchTerm || statusValue !== 'all' || priorityValue !== 'all' || typeValue !== 'all';
+            
+            if (visibleCount === 0 && hasActiveFilters) {
+                const noResultsRow = document.createElement('tr');
+                noResultsRow.id = 'noNotificationResults';
+                noResultsRow.innerHTML = `
+                    <td colspan="6" class="px-6 py-12 text-center">
+                        <div class="max-w-sm mx-auto">
+                            <i class="fas fa-search text-4xl text-gray-300 mb-4"></i>
+                            <h3 class="text-lg font-medium text-gray-900 mb-2">Tidak ada hasil</h3>
+                            <p class="text-gray-500 mb-4">
+                                Tidak ditemukan notifikasi dengan kriteria yang dipilih
+                            </p>
+                            <div class="space-y-2">
+                                <button onclick="resetNotificationFilters()" class="text-blue-600 hover:text-blue-800 font-medium block mx-auto">
+                                    <i class="fas fa-undo mr-1"></i>Reset semua filter
+                                </button>
+                                <button onclick="document.getElementById('create-tab').click()" class="text-green-600 hover:text-green-800 font-medium">
+                                    <i class="fas fa-plus mr-1"></i>Buat notifikasi baru
+                                </button>
+                            </div>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(noResultsRow);
+            }
+        }
+
+        function updateFilterSummary() {
+            const searchInput = document.getElementById('notificationSearch');
+            const statusFilter = document.getElementById('notificationStatusFilter');
+            const priorityFilter = document.getElementById('notificationPriorityFilter');
+            const typeFilter = document.getElementById('notificationTypeFilter');
+            const filterSummary = document.getElementById('filterSummary');
+            const activeFiltersText = document.getElementById('activeFiltersText');
+            
+            const searchTerm = searchInput ? searchInput.value.trim() : '';
+            const statusValue = statusFilter ? statusFilter.value : 'all';
+            const priorityValue = priorityFilter ? priorityFilter.value : 'all';
+            const typeValue = typeFilter ? typeFilter.value : 'all';
+            
+            const activeFilters = [];
+            
+            if (searchTerm) {
+                activeFilters.push(`Pencarian: "${searchTerm}"`);
+            }
+            if (statusValue !== 'all') {
+                const statusText = statusFilter.options[statusFilter.selectedIndex].text;
+                activeFilters.push(`Status: ${statusText}`);
+            }
+            if (priorityValue !== 'all') {
+                const priorityText = priorityFilter.options[priorityFilter.selectedIndex].text;
+                activeFilters.push(`Prioritas: ${priorityText}`);
+            }
+            if (typeValue !== 'all') {
+                const typeText = typeFilter.options[typeFilter.selectedIndex].text;
+                activeFilters.push(`Jenis: ${typeText}`);
+            }
+            
+            if (activeFilters.length > 0 && filterSummary && activeFiltersText) {
+                filterSummary.classList.remove('hidden');
+                activeFiltersText.textContent = activeFilters.join(', ');
+            } else if (filterSummary) {
+                filterSummary.classList.add('hidden');
+            }
+        }
+
+        function clearNotificationSearch() {
+            const searchInput = document.getElementById('notificationSearch');
+            const clearBtn = document.getElementById('clearNotificationSearchBtn');
+            const resultsCount = document.getElementById('notificationSearchResultsCount');
+            
+            if (searchInput) {
+                searchInput.value = '';
+                searchInput.focus();
+            }
+            
+            if (clearBtn) {
+                clearBtn.classList.add('hidden');
+            }
+            
+            if (resultsCount) {
+                resultsCount.classList.add('hidden');
+            }
+            
+            filterNotifications();
+            updateFilterSummary();
+        }
+
+        function resetNotificationFilters() {
+            const searchInput = document.getElementById('notificationSearch');
+            const statusFilter = document.getElementById('notificationStatusFilter');
+            const priorityFilter = document.getElementById('notificationPriorityFilter');
+            const typeFilter = document.getElementById('notificationTypeFilter');
+            const clearBtn = document.getElementById('clearNotificationSearchBtn');
+            const resultsCount = document.getElementById('notificationSearchResultsCount');
+            
+            if (searchInput) searchInput.value = '';
+            if (statusFilter) statusFilter.value = 'all';
+            if (priorityFilter) priorityFilter.value = 'all';
+            if (typeFilter) typeFilter.value = 'all';
+            if (clearBtn) clearBtn.classList.add('hidden');
+            if (resultsCount) resultsCount.classList.add('hidden');
+            
+            filterNotifications();
+            updateFilterSummary();
+        }
+
+        function sortNotificationTable(column) {
+            const table = document.querySelector('#notifications table');
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr:not(#noNotificationResults)'));
+            
+            let columnIndex;
+            switch (column) {
+                case 'title': columnIndex = 0; break;
+                case 'scheduled_datetime': columnIndex = 1; break;
+                case 'priority': columnIndex = 4; break;
+                default: return;
+            }
+            
+            const sortedRows = rows.sort((a, b) => {
+                const aText = a.cells[columnIndex].textContent.trim();
+                const bText = b.cells[columnIndex].textContent.trim();
+                return aText.localeCompare(bText);
+            });
+            
+            // Clear tbody and append sorted rows
+            tbody.innerHTML = '';
+            sortedRows.forEach(row => tbody.appendChild(row));
+            
+            // Re-apply filters
+            setTimeout(() => {
+                filterNotifications();
+                updateFilterSummary();
+            }, 100);
+        }
+
+        // ========== NOTIFICATION ACTIONS ==========
+        function sendNotificationNow(notificationId) {
+            showConfirmModal(
+                'Kirim Notifikasi Sekarang',
+                'Apakah Anda yakin ingin mengirim notifikasi ini sekarang?',
+                'Kirim Sekarang',
+                'primary',
+                () => {
+                    fetch('api.php/notification/send-now', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ id: notificationId })
+                    })
+                    .then(response => response.json())
+                    .then(result => {
+                        if (result.success) {
+                            showSuccess('Notifikasi berhasil dikirim');
+                            setTimeout(() => location.reload(), 1500);
+                        } else {
+                            showError('Gagal mengirim notifikasi: ' + result.error);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showError('Terjadi kesalahan sistem');
+                    });
+                }
+            );
+        }
+
+        function viewNotificationDetails(notificationId) {
+            window.open(`notification-details.php?id=${notificationId}`, '_self');
+        }
+
+        function editNotification(notificationId) {
+            window.open(`edit-notification.php?id=${notificationId}`, '_self');
+        }
+
+        function deleteNotification(notificationId) {
+            showConfirmModal(
+                'Hapus Notifikasi',
+                'Apakah Anda yakin ingin menghapus notifikasi ini?',
+                'Hapus',
+                'danger',
+                () => {
+                    fetch('api.php/notification/'+notificationId, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(result => {
+                        if (result.success) {
+                            showSuccess('Notifikasi berhasil dihapus');
+                            setTimeout(() => location.reload(), 1500);
+                        } else {
+                            showError('Gagal menghapus notifikasi: ' + result.error);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showError('Terjadi kesalahan sistem');
+                    });
+                }
+            );
+        }
+
+        // ========== TEMPLATE MANAGEMENT ==========
+        function initializeTemplateManagement() {
+            // Edit template buttons
+            const editButtons = document.querySelectorAll('.edit-template-btn');
+            editButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const id = this.dataset.templateId;
+                    const title = this.dataset.templateTitle;
+                    const message = this.dataset.templateMessage;
+                    const categoryId = this.dataset.templateCategory;
+                    
+                    editTemplate(id, title, message, categoryId);
+                });
+            });
+        }
+
+        function editTemplate(id, title, messageTemplate, categoryId) {
+            // This would open the edit template modal
+            // For now, just show an alert
+            alert(`Edit template: ${title} (ID: ${id})`);
+        }
+
+        function deleteTemplate(id, title) {
+            showConfirmModal(
+                'Hapus Template',
+                `Apakah Anda yakin ingin menghapus template "${title}"?`,
+                'Hapus',
+                'danger',
+                () => {
+                    fetch('api.php/template', {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ id: id })
+                    })
+                    .then(response => response.json())
+                    .then(result => {
+                        if (result.success) {
+                            showSuccess('Template berhasil dihapus');
+                            setTimeout(() => location.reload(), 1500);
+                        } else {
+                            showError('Gagal menghapus template: ' + result.error);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showError('Terjadi kesalahan sistem');
+                    });
+                }
+            );
+        }
+
         function filterTemplates(category) {
             const cards = document.querySelectorAll('.template-card');
             const buttons = document.querySelectorAll('[onclick^="filterTemplates"]');
@@ -521,15 +1047,9 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
                 }
             });
         }
-        
-        // Add enhanced notification functions
-        function editNotification(id) {
-            // Redirect to edit page or open modal
-            alert('Edit notification feature coming soon');
-        }
-        
-        // Enhanced tab switching with animation
-        document.addEventListener('DOMContentLoaded', function() {
+
+        // ========== TAB SWITCHING ==========
+        function initializeTabSwitching() {
             const tabButtons = document.querySelectorAll('[data-tabs-target]');
             const tabPanels = document.querySelectorAll('[role="tabpanel"]');
             
@@ -563,6 +1083,99 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
                     }
                 });
             });
+        }
+
+        // ========== GLOBAL UTILITY FUNCTIONS ==========
+        function showModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.style.display = 'flex';
+                modal.setAttribute('aria-hidden', 'false');
+            }
+        }
+
+        function hideModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.style.display = 'none';
+                modal.setAttribute('aria-hidden', 'true');
+            }
+        }
+
+        function showSuccess(message) {
+            const modal = document.getElementById('successModal');
+            const messageEl = document.getElementById('successMessage');
+            if (modal && messageEl) {
+                messageEl.textContent = message;
+                showModal('successModal');
+            }
+        }
+
+        function showError(message) {
+            const modal = document.getElementById('errorModal');
+            const messageEl = document.getElementById('errorMessage');
+            if (modal && messageEl) {
+                messageEl.textContent = message;
+                showModal('errorModal');
+            }
+        }
+
+        function showConfirmModal(title, message, buttonText, type, callback) {
+            const modal = document.getElementById('confirmModal');
+            const titleEl = document.getElementById('confirmTitle');
+            const messageEl = document.getElementById('confirmMessage');
+            const buttonEl = document.getElementById('confirmButton');
+            const buttonTextEl = document.getElementById('confirmButtonText');
+            const iconEl = document.getElementById('confirmIcon');
+            
+            if (modal && titleEl && messageEl && buttonEl && buttonTextEl && iconEl) {
+                titleEl.textContent = title;
+                messageEl.textContent = message;
+                buttonTextEl.textContent = buttonText;
+                
+                // Set button color based on type
+                buttonEl.className = 'text-white font-medium rounded-lg text-sm inline-flex items-center px-5 py-2.5 text-center';
+                if (type === 'danger') {
+                    buttonEl.classList.add('bg-red-600', 'hover:bg-red-700', 'focus:ring-red-300');
+                    iconEl.className = 'fas fa-exclamation-triangle text-5xl text-red-500';
+                } else {
+                    buttonEl.classList.add('bg-blue-600', 'hover:bg-blue-700', 'focus:ring-blue-300');
+                    iconEl.className = 'fas fa-question-circle text-5xl text-gray-400';
+                }
+                
+                // Set up callback
+                buttonEl.onclick = function() {
+                    hideModal('confirmModal');
+                    if (callback) callback();
+                };
+                
+                showModal('confirmModal');
+            }
+        }
+
+        // Close modals when clicking outside
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('fixed') && e.target.classList.contains('z-50')) {
+                const modalId = e.target.id;
+                if (modalId && modalId.includes('Modal')) {
+                    hideModal(modalId);
+                }
+            }
+        });
+
+        // Close modals with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const modals = ['successModal', 'errorModal', 'confirmModal'];
+                modals.forEach(modalId => {
+                    const modal = document.getElementById(modalId);
+                    if (modal && !modal.classList.contains('hidden')) {
+                        hideModal(modalId);
+                    }
+                });
+            }
         });
     </script>
 </body>

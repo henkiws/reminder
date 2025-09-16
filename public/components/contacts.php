@@ -1,5 +1,5 @@
 <?php
-// components/contacts.php - Enhanced Version
+// components/contacts.php - Complete Enhanced Version with Fixed Search
 ?>
 
 <div class="bg-white p-6 rounded-lg shadow-lg">
@@ -20,23 +20,32 @@
         </div>
     </div>
     
-    <!-- Search and Filter -->
+    <!-- Enhanced Search and Filter Section -->
     <div class="mb-6 flex flex-col sm:flex-row gap-4">
         <div class="flex-1">
             <div class="relative">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <i class="fas fa-search text-gray-400"></i>
                 </div>
-                <input type="text" id="contactSearch" placeholder="Cari kontak berdasarkan nama atau nomor..." 
-                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block w-full pl-10 p-2.5">
+                <input type="text" 
+                       id="contactSearch" 
+                       placeholder="Cari kontak berdasarkan nama atau nomor..." 
+                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block w-full pl-10 pr-10 p-2.5 transition-colors">
+                <!-- Clear search button -->
+                <div class="absolute inset-y-0 right-0 flex items-center">
+                    <button type="button" 
+                            id="clearContactSearchBtn"
+                            onclick="clearContactSearch()" 
+                            class="hidden mr-3 text-gray-400 hover:text-gray-600 transition-colors"
+                            title="Hapus pencarian">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
             </div>
+            <!-- Search results count -->
+            <div id="contactSearchResultsCount" class="mt-1 text-xs text-gray-500 hidden"></div>
         </div>
         <div class="flex gap-2">
-            <select id="contactFilter" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 p-2.5">
-                <option value="all">Semua Kontak</option>
-                <option value="personal">Kontak Pribadi</option>
-                <option value="shared">Kontak Bersama</option>
-            </select>
             <button type="button" onclick="exportContacts()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition-colors">
                 <i class="fas fa-download mr-2"></i>Export
             </button>
@@ -73,21 +82,20 @@
                             <label for="selectAll" class="sr-only">Select all</label>
                         </div>
                     </th>
-                    <th scope="col" class="px-6 py-3 cursor-pointer hover:bg-gray-100" onclick="sortTable('name')">
+                    <th scope="col" class="px-6 py-3 cursor-pointer hover:bg-gray-100" onclick="sortContactTable('name')">
                         <div class="flex items-center">
                             Nama
                             <i class="fas fa-sort ml-1"></i>
                         </div>
                     </th>
-                    <th scope="col" class="px-6 py-3 cursor-pointer hover:bg-gray-100" onclick="sortTable('phone')">
+                    <th scope="col" class="px-6 py-3 cursor-pointer hover:bg-gray-100" onclick="sortContactTable('phone')">
                         <div class="flex items-center">
                             Nomor WhatsApp
                             <i class="fas fa-sort ml-1"></i>
                         </div>
                     </th>
                     <th scope="col" class="px-6 py-3">Status</th>
-                    <th scope="col" class="px-6 py-3">Pemilik</th>
-                    <th scope="col" class="px-6 py-3 cursor-pointer hover:bg-gray-100" onclick="sortTable('created_at')">
+                    <th scope="col" class="px-6 py-3 cursor-pointer hover:bg-gray-100" onclick="sortContactTable('created_at')">
                         <div class="flex items-center">
                             Ditambahkan
                             <i class="fas fa-sort ml-1"></i>
@@ -111,7 +119,7 @@
                                 <?php echo strtoupper(substr($contact['name'], 0, 1)); ?>
                             </div>
                             <div>
-                                <div class="font-medium text-gray-900"><?php echo htmlspecialchars($contact['name']); ?></div>
+                                <div class="font-medium text-gray-900" data-searchable="name"><?php echo htmlspecialchars($contact['name']); ?></div>
                                 <?php if (!empty($contact['notes'])): ?>
                                 <div class="text-xs text-gray-500 mt-1"><?php echo htmlspecialchars($contact['notes']); ?></div>
                                 <?php endif; ?>
@@ -119,8 +127,8 @@
                         </div>
                     </td>
                     <td class="px-6 py-4">
-                        <div class="font-mono text-sm"><?php echo htmlspecialchars($contact['phone']); ?></div>
-                        <button onclick="copyToClipboard('<?php echo $contact['phone']; ?>')" 
+                        <div class="font-mono text-sm" data-searchable="phone"><?php echo htmlspecialchars($contact['phone']); ?></div>
+                        <button onclick="copyToClipboard('<?php echo htmlspecialchars($contact['phone'], ENT_QUOTES); ?>')" 
                                 class="text-xs text-blue-600 hover:text-blue-800 mt-1">
                             <i class="fas fa-copy mr-1"></i>Copy
                         </button>
@@ -132,53 +140,32 @@
                         </span>
                     </td>
                     <td class="px-6 py-4">
-                        <?php if ($contact['user_id']): ?>
-                            <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded">
-                                <i class="fas fa-user mr-1"></i>Pribadi
-                            </span>
-                        <?php else: ?>
-                            <span class="bg-gray-100 text-gray-800 text-xs font-medium px-2 py-1 rounded">
-                                <i class="fas fa-globe mr-1"></i>Bersama
-                            </span>
-                        <?php endif; ?>
-                    </td>
-                    <td class="px-6 py-4">
                         <div class="text-sm"><?php echo date('d/m/Y', strtotime($contact['created_at'])); ?></div>
                         <div class="text-xs text-gray-500"><?php echo date('H:i', strtotime($contact['created_at'])); ?></div>
                     </td>
                     <td class="px-6 py-4">
                         <div class="flex space-x-2">
-                            <button onclick="sendTestMessage(<?php echo $contact['id']; ?>, '<?php echo htmlspecialchars($contact['phone']); ?>')" 
-                                    class="text-green-600 hover:text-green-900 transition-colors" title="Kirim Pesan Test">
-                                <i class="fas fa-paper-plane"></i>
-                            </button>
-                            <button onclick="editContact(<?php echo $contact['id']; ?>, '<?php echo htmlspecialchars($contact['name'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($contact['phone'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($contact['notes'] ?? '', ENT_QUOTES); ?>')" 
-                                    class="text-blue-600 hover:text-blue-900 transition-colors" title="Edit Kontak">
+                            <button type="button"
+                                    class="text-blue-600 hover:text-blue-900 transition-colors edit-contact-btn" 
+                                    data-contact-id="<?php echo $contact['id']; ?>"
+                                    data-contact-name="<?php echo htmlspecialchars($contact['name']); ?>"
+                                    data-contact-phone="<?php echo htmlspecialchars($contact['phone']); ?>"
+                                    data-contact-notes="<?php echo htmlspecialchars($contact['notes'] ?? ''); ?>"
+                                    title="Edit Kontak">
                                 <i class="fas fa-edit"></i>
                             </button>
-                            <button onclick="deleteContact(<?php echo $contact['id']; ?>, '<?php echo htmlspecialchars($contact['name'], ENT_QUOTES); ?>')" 
-                                    class="text-red-600 hover:text-red-900 transition-colors" title="Hapus Kontak">
+                            <button type="button"
+                                    class="text-red-600 hover:text-red-900 transition-colors delete-contact-btn"
+                                    data-contact-id="<?php echo $contact['id']; ?>"
+                                    data-contact-name="<?php echo htmlspecialchars($contact['name']); ?>"
+                                    title="Hapus Kontak">
                                 <i class="fas fa-trash"></i>
                             </button>
-                            <div class="relative">
-                                <button onclick="toggleContactMenu(<?php echo $contact['id']; ?>)" 
-                                        class="text-gray-600 hover:text-gray-900 transition-colors" title="Menu Lainnya">
-                                    <i class="fas fa-ellipsis-v"></i>
-                                </button>
-                                <div id="contactMenu<?php echo $contact['id']; ?>" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border">
-                                    <div class="py-1">
-                                        <button onclick="viewContactHistory(<?php echo $contact['id']; ?>)" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left">
-                                            <i class="fas fa-history mr-2"></i>Riwayat Pesan
-                                        </button>
-                                        <button onclick="addToGroup(<?php echo $contact['id']; ?>)" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left">
-                                            <i class="fas fa-users mr-2"></i>Tambah ke Grup
-                                        </button>
-                                        <button onclick="duplicateContact(<?php echo $contact['id']; ?>)" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left">
-                                            <i class="fas fa-clone mr-2"></i>Duplikasi
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+                            <button onclick="viewContactHistory(<?php echo $contact['id']; ?>)" 
+                                    class="text-gray-600 hover:text-gray-900 transition-colors" 
+                                    title="Riwayat Pesan">
+                                <i class="fas fa-history"></i>
+                            </button>
                         </div>
                     </td>
                 </tr>
@@ -333,29 +320,192 @@
 </div>
 
 <script>
-// Enhanced contact management scripts
+// Complete Contact Management JavaScript with Fixed Search
 document.addEventListener('DOMContentLoaded', function() {
     initializeContactManagement();
 });
 
 function initializeContactManagement() {
-    // Search functionality
+    initializeContactSearch();
+    initializeContactSelection();
+    initializeContactMenus();
+    initializeContactForms();
+}
+
+// ========== SEARCH FUNCTIONALITY ==========
+function initializeContactSearch() {
     const searchInput = document.getElementById('contactSearch');
+    const clearBtn = document.getElementById('clearContactSearchBtn');
+    const filterSelect = document.getElementById('contactFilter');
+    
     if (searchInput) {
+        let searchTimeout;
+        
+        // Real-time search with debounce
         searchInput.addEventListener('input', function() {
-            filterContacts();
+            clearTimeout(searchTimeout);
+            const searchTerm = this.value.trim();
+            
+            // Show/hide clear button
+            if (clearBtn) {
+                if (searchTerm) {
+                    clearBtn.classList.remove('hidden');
+                } else {
+                    clearBtn.classList.add('hidden');
+                }
+            }
+            
+            // Debounced search
+            searchTimeout = setTimeout(() => {
+                filterContacts();
+                updateContactSearchResults();
+            }, 300);
+        });
+        
+        // Clear search on Escape
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                clearContactSearch();
+            }
         });
     }
     
-    // Filter functionality
-    const filterSelect = document.getElementById('contactFilter');
+    // Filter select
     if (filterSelect) {
         filterSelect.addEventListener('change', function() {
             filterContacts();
+            updateContactSearchResults();
         });
     }
+}
+
+function filterContacts() {
+    const searchInput = document.getElementById('contactSearch');
+    const filterSelect = document.getElementById('contactFilter');
+    const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+    const filterValue = filterSelect ? filterSelect.value : 'all';
+    const rows = document.querySelectorAll('.contact-row');
     
-    // Select all functionality
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+        const nameElement = row.querySelector('[data-searchable="name"]');
+        const phoneElement = row.querySelector('[data-searchable="phone"]');
+        const statusCell = row.querySelector('td:nth-child(4)');
+        
+        if (!nameElement || !phoneElement) return;
+        
+        const name = nameElement.textContent.toLowerCase();
+        const phone = phoneElement.textContent.toLowerCase();
+        const isActive = statusCell && statusCell.textContent.toLowerCase().includes('aktif');
+        
+        let showRow = true;
+        
+        // Apply search filter
+        if (searchTerm && !name.includes(searchTerm) && !phone.includes(searchTerm)) {
+            showRow = false;
+        }
+        
+        // Apply status filter
+        if (filterValue === 'active' && !isActive) {
+            showRow = false;
+        } else if (filterValue === 'recent') {
+            // Add logic for recent contacts if needed
+        }
+        
+        if (showRow) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    
+    updateContactEmptyState(visibleCount, searchTerm);
+    updateBulkActionsAfterContactFilter();
+}
+
+function updateContactSearchResults() {
+    const searchInput = document.getElementById('contactSearch');
+    const resultsCount = document.getElementById('contactSearchResultsCount');
+    const visibleRows = document.querySelectorAll('.contact-row:not([style*="display: none"])');
+    const totalRows = document.querySelectorAll('.contact-row');
+    
+    if (resultsCount && searchInput && searchInput.value.trim()) {
+        const count = visibleRows.length;
+        const total = totalRows.length;
+        
+        if (count === total) {
+            resultsCount.classList.add('hidden');
+        } else {
+            resultsCount.classList.remove('hidden');
+            resultsCount.textContent = `Menampilkan ${count} dari ${total} kontak`;
+        }
+    } else if (resultsCount) {
+        resultsCount.classList.add('hidden');
+    }
+}
+
+function updateContactEmptyState(visibleCount, searchTerm) {
+    const tbody = document.getElementById('contactsTableBody');
+    const existingMessage = document.getElementById('noContactSearchResults');
+    
+    // Remove existing no-results message
+    if (existingMessage) {
+        existingMessage.remove();
+    }
+    
+    // Show no results message if no visible rows and search is active
+    if (visibleCount === 0 && searchTerm) {
+        const noResultsRow = document.createElement('tr');
+        noResultsRow.id = 'noContactSearchResults';
+        noResultsRow.innerHTML = `
+            <td colspan="6" class="px-6 py-12 text-center">
+                <div class="max-w-sm mx-auto">
+                    <i class="fas fa-search text-4xl text-gray-300 mb-4"></i>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">Tidak ada hasil</h3>
+                    <p class="text-gray-500 mb-4">
+                        Tidak ditemukan kontak dengan kata kunci "<strong>${searchTerm}</strong>"
+                    </p>
+                    <div class="space-y-2">
+                        <button onclick="clearContactSearch()" class="text-blue-600 hover:text-blue-800 font-medium block mx-auto">
+                            <i class="fas fa-times mr-1"></i>Hapus pencarian
+                        </button>
+                        <button data-modal-target="addContactModal" data-modal-toggle="addContactModal" 
+                                class="text-green-600 hover:text-green-800 font-medium">
+                            <i class="fas fa-plus mr-1"></i>Tambah kontak baru
+                        </button>
+                    </div>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(noResultsRow);
+    }
+}
+
+function clearContactSearch() {
+    const searchInput = document.getElementById('contactSearch');
+    const clearBtn = document.getElementById('clearContactSearchBtn');
+    const resultsCount = document.getElementById('contactSearchResultsCount');
+    
+    if (searchInput) {
+        searchInput.value = '';
+        searchInput.focus();
+    }
+    
+    if (clearBtn) {
+        clearBtn.classList.add('hidden');
+    }
+    
+    if (resultsCount) {
+        resultsCount.classList.add('hidden');
+    }
+    
+    filterContacts();
+}
+
+// ========== SELECTION FUNCTIONALITY ==========
+function initializeContactSelection() {
     const selectAllCheckbox = document.getElementById('selectAll');
     if (selectAllCheckbox) {
         selectAllCheckbox.addEventListener('change', function() {
@@ -370,55 +520,14 @@ function initializeContactManagement() {
             updateBulkActions();
         });
     });
-    
-    // Phone number formatting
-    const phoneInputs = document.querySelectorAll('input[type="tel"]');
-    phoneInputs.forEach(input => {
-        input.addEventListener('input', function() {
-            formatPhoneInput(this);
-        });
-    });
-    
-    // Close contact menus when clicking outside
-    document.addEventListener('click', function(e) {
-        if (!e.target.closest('[id^="contactMenu"]') && !e.target.closest('button[onclick*="toggleContactMenu"]')) {
-            closeAllContactMenus();
-        }
-    });
-}
-
-function filterContacts() {
-    const searchTerm = document.getElementById('contactSearch').value.toLowerCase();
-    const filterValue = document.getElementById('contactFilter').value;
-    const rows = document.querySelectorAll('.contact-row');
-    
-    rows.forEach(row => {
-        const name = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
-        const phone = row.querySelector('td:nth-child(3)').textContent.toLowerCase();
-        const isPersonal = row.querySelector('.fa-user') !== null;
-        
-        let showRow = true;
-        
-        // Apply search filter
-        if (searchTerm && !name.includes(searchTerm) && !phone.includes(searchTerm)) {
-            showRow = false;
-        }
-        
-        // Apply type filter
-        if (filterValue === 'personal' && !isPersonal) {
-            showRow = false;
-        } else if (filterValue === 'shared' && isPersonal) {
-            showRow = false;
-        }
-        
-        row.style.display = showRow ? '' : 'none';
-    });
 }
 
 function toggleSelectAll(checked) {
     const checkboxes = document.querySelectorAll('.contact-checkbox');
     checkboxes.forEach(checkbox => {
-        if (checkbox.closest('.contact-row').style.display !== 'none') {
+        const row = checkbox.closest('.contact-row');
+        // Only affect visible rows
+        if (row && row.style.display !== 'none') {
             checkbox.checked = checked;
         }
     });
@@ -426,13 +535,18 @@ function toggleSelectAll(checked) {
 }
 
 function updateBulkActions() {
-    const checkedBoxes = document.querySelectorAll('.contact-checkbox:checked');
+    updateBulkActionsAfterContactFilter();
+}
+
+function updateBulkActionsAfterContactFilter() {
+    // Update bulk actions to only consider visible rows
+    const visibleCheckedBoxes = document.querySelectorAll('.contact-row:not([style*="display: none"]) .contact-checkbox:checked');
     const bulkActions = document.getElementById('bulkActions');
     const selectedCount = document.getElementById('selectedCount');
     
-    if (checkedBoxes.length > 0) {
+    if (visibleCheckedBoxes.length > 0) {
         bulkActions.classList.remove('hidden');
-        selectedCount.textContent = checkedBoxes.length;
+        selectedCount.textContent = visibleCheckedBoxes.length;
     } else {
         bulkActions.classList.add('hidden');
     }
@@ -441,59 +555,21 @@ function updateBulkActions() {
 function clearSelection() {
     const checkboxes = document.querySelectorAll('.contact-checkbox');
     checkboxes.forEach(checkbox => checkbox.checked = false);
-    document.getElementById('selectAll').checked = false;
+    
+    const selectAllCheckbox = document.getElementById('selectAll');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = false;
+    }
+    
     updateBulkActions();
 }
 
-function formatPhoneInput(input) {
-    let value = input.value.replace(/\D/g, '');
-    
-    // Ensure it starts with 62
-    if (value.startsWith('0')) {
-        value = '62' + value.substring(1);
-    } else if (!value.startsWith('62') && value.length > 0) {
-        value = '62' + value;
-    }
-    
-    input.value = value;
-}
-
-function sortTable(column) {
-    const table = document.querySelector('table');
-    const tbody = table.querySelector('tbody');
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-    
-    let columnIndex;
-    switch (column) {
-        case 'name': columnIndex = 1; break;
-        case 'phone': columnIndex = 2; break;
-        case 'created_at': columnIndex = 5; break;
-        default: return;
-    }
-    
-    const sortedRows = rows.sort((a, b) => {
-        const aText = a.cells[columnIndex].textContent.trim();
-        const bText = b.cells[columnIndex].textContent.trim();
-        return aText.localeCompare(bText);
-    });
-    
-    // Clear tbody and append sorted rows
-    tbody.innerHTML = '';
-    sortedRows.forEach(row => tbody.appendChild(row));
-}
-
-function copyToClipboard(text) {
-    navigator.clipboard.writeText(text).then(function() {
-        showSuccess('Nomor berhasil disalin ke clipboard');
-    }).catch(function() {
-        // Fallback for older browsers
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-        showSuccess('Nomor berhasil disalin');
+// ========== MENU FUNCTIONALITY ==========
+function initializeContactMenus() {
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('[id^="contactMenu"]') && !e.target.closest('button[onclick*="toggleContactMenu"]')) {
+            closeAllContactMenus();
+        }
     });
 }
 
@@ -510,6 +586,167 @@ function closeAllContactMenus() {
     menus.forEach(menu => menu.classList.add('hidden'));
 }
 
+// ========== FORM FUNCTIONALITY ==========
+function initializeContactForms() {
+    // Edit contact buttons
+    const editButtons = document.querySelectorAll('.edit-contact-btn');
+    editButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const id = this.dataset.contactId;
+            const name = this.dataset.contactName;
+            const phone = this.dataset.contactPhone;
+            const notes = this.dataset.contactNotes;
+            
+            editContact(id, name, phone, notes);
+        });
+    });
+    
+    // Delete contact buttons
+    const deleteButtons = document.querySelectorAll('.delete-contact-btn');
+    deleteButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const id = this.dataset.contactId;
+            const name = this.dataset.contactName;
+            
+            deleteContact(id, name);
+        });
+    });
+    
+    // Add contact form
+    const addForm = document.getElementById('addContactForm');
+    if (addForm) {
+        addForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            submitAddContactForm();
+        });
+    }
+    
+    // Edit contact form
+    const editForm = document.getElementById('editContactForm');
+    if (editForm) {
+        editForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            submitEditContactForm();
+        });
+    }
+    
+    // Phone number formatting
+    const phoneInputs = document.querySelectorAll('input[type="tel"]');
+    phoneInputs.forEach(input => {
+        input.addEventListener('input', function() {
+            formatPhoneInput(this);
+        });
+    });
+}
+
+function editContact(id, name, phone, notes) {
+    document.getElementById('edit_contact_id').value = id;
+    document.getElementById('edit_contact_name').value = name;
+    document.getElementById('edit_contact_phone').value = phone;
+    document.getElementById('edit_contact_notes').value = notes || '';
+    
+    showModal('editContactModal');
+}
+
+function deleteContact(id, name) {
+    showConfirmModal(
+        'Hapus Kontak',
+        `Apakah Anda yakin ingin menghapus kontak "${name}"?`,
+        'Hapus',
+        'danger',
+        () => {
+            fetch('api.php/contact', {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ id: id })
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    showSuccess('Kontak berhasil dihapus');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showError('Gagal menghapus kontak: ' + result.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showError('Terjadi kesalahan sistem');
+            });
+        }
+    );
+}
+
+function submitAddContactForm() {
+    const formData = new FormData(document.getElementById('addContactForm'));
+    const data = Object.fromEntries(formData);
+    
+    fetch('api.php/contact', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showSuccess('Kontak berhasil ditambahkan');
+            hideModal('addContactModal');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showError('Gagal menambahkan kontak: ' + result.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showError('Terjadi kesalahan sistem');
+    });
+}
+
+function submitEditContactForm() {
+    const formData = new FormData(document.getElementById('editContactForm'));
+    const data = Object.fromEntries(formData);
+    
+    fetch('api.php/contact', {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showSuccess('Kontak berhasil diperbarui');
+            hideModal('editContactModal');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showError('Gagal memperbarui kontak: ' + result.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showError('Terjadi kesalahan sistem');
+    });
+}
+
+function formatPhoneInput(input) {
+    let value = input.value.replace(/\D/g, '');
+    
+    // Ensure it starts with 62
+    if (value.startsWith('0')) {
+        value = '62' + value.substring(1);
+    } else if (!value.startsWith('62') && value.length > 0) {
+        value = '62' + value;
+    }
+    
+    input.value = value;
+}
+
+// ========== API FUNCTIONS ==========
 function sendTestMessage(contactId, phone) {
     showConfirmModal(
         'Kirim Pesan Test',
@@ -517,7 +754,6 @@ function sendTestMessage(contactId, phone) {
         'Kirim',
         'primary',
         () => {
-            // Implement test message functionality
             fetch('api.php/send-test', {
                 method: 'POST',
                 headers: {
@@ -545,34 +781,51 @@ function sendTestMessage(contactId, phone) {
     );
 }
 
-function editContact(id, name, phone, notes) {
-    document.getElementById('edit_contact_id').value = id;
-    document.getElementById('edit_contact_name').value = name;
-    document.getElementById('edit_contact_phone').value = phone;
-    document.getElementById('edit_contact_notes').value = notes || '';
+// ========== UTILITY FUNCTIONS ==========
+function sortContactTable(column) {
+    const table = document.querySelector('table');
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr:not(#noContactSearchResults)'));
     
-    showModal('editContactModal');
+    let columnIndex;
+    switch (column) {
+        case 'name': columnIndex = 1; break;
+        case 'phone': columnIndex = 2; break;
+        case 'created_at': columnIndex = 4; break;
+        default: return;
+    }
+    
+    const sortedRows = rows.sort((a, b) => {
+        const aText = a.cells[columnIndex].textContent.trim();
+        const bText = b.cells[columnIndex].textContent.trim();
+        return aText.localeCompare(bText);
+    });
+    
+    // Clear tbody and append sorted rows
+    tbody.innerHTML = '';
+    sortedRows.forEach(row => tbody.appendChild(row));
+    
+    // Re-apply filters
+    setTimeout(() => {
+        filterContacts();
+    }, 100);
 }
 
 function viewContactHistory(contactId) {
-    // Open contact history modal or page
-    window.open(`contact-history.php?id=${contactId}`, '_blank');
+    window.open(`contact-history.php?id=${contactId}`, '_self');
 }
 
 function addToGroup(contactId) {
-    // Implement add to group functionality
     alert('Fitur tambah ke grup akan segera tersedia');
 }
 
 function duplicateContact(contactId) {
-    // Implement duplicate contact functionality
     showConfirmModal(
         'Duplikasi Kontak',
         'Apakah Anda yakin ingin menduplikasi kontak ini?',
         'Duplikasi',
         'primary',
         () => {
-            // Implementation here
             alert('Fitur duplikasi kontak akan segera tersedia');
         }
     );
@@ -620,7 +873,6 @@ function bulkExport() {
     
     const contactIds = Array.from(checkedBoxes).map(cb => cb.value);
     
-    // Create export request
     fetch('api.php/contacts/export', {
         method: 'POST',
         headers: {
@@ -645,7 +897,24 @@ function bulkExport() {
 }
 
 function exportContacts() {
-    // Export all contacts
     window.open('api.php/contacts/export?all=1', '_blank');
 }
+
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        showSuccess('Nomor berhasil disalin ke clipboard');
+    }).catch(function() {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        showSuccess('Nomor berhasil disalin');
+    });
+}
+
+// Note: Helper functions like showModal, hideModal, showConfirmModal, showSuccess, showError 
+// should be available globally from your main app.js file
 </script>
