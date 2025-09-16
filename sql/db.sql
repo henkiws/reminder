@@ -326,7 +326,7 @@ NULL, JSON_ARRAY('name', 'task_title', 'task_description', 'deadline_date', 'dea
 
 -- Insert API config default
 INSERT INTO api_config (name, api_key, api_url) VALUES 
-('Fonnte Default', 'YOUR_FONNTE_API_KEY_HERE', 'https://api.fonnte.com/send');
+('Fonnte Default', 'nZStHWF24TuJYtCeoZMJ', 'https://api.fonnte.com/send');
 
 -- Insert contoh data untuk testing
 INSERT INTO contacts (name, phone, user_id, notes) VALUES 

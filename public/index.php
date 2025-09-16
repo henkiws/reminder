@@ -61,6 +61,10 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        .tab-active {
+            border-color: rgb(34 197 94) !important;
+            color: rgb(34 197 94) !important;
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -111,18 +115,18 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
                 <div id="userMenu" class="z-50 hidden my-4 text-base list-none bg-white divide-y divide-gray-100 rounded-lg shadow">
                     <div class="px-4 py-3">
                         <span class="block text-sm text-gray-900"><?php echo htmlspecialchars($currentUser['full_name']); ?></span>
-                        <span class="block text-sm font-medium text-gray-500 truncate"><?php echo htmlspecialchars($currentUser['username']); ?></span>
+                        <span class="block text-sm font-medium text-gray-500 truncate">@<?php echo htmlspecialchars($currentUser['username']); ?></span>
                     </div>
                     <ul class="py-2">
                         <?php if (hasPermission('user.read')): ?>
                         <li>
-                            <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <button onclick="showUserManagementTab()" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                 <i class="fas fa-users mr-2"></i>Manajemen User
                             </button>
                         </li>
                         <?php endif; ?>
                         <li>
-                            <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <button onclick="showProfileTab()" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                 <i class="fas fa-user mr-2"></i>Profil Saya
                             </button>
                         </li>
@@ -141,54 +145,114 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
         <div class="max-w-screen-xl mx-auto">
             <!-- Enhanced Tab Navigation -->
             <div class="mb-6 border-b border-gray-200">
-                <ul class="flex flex-wrap -mb-px text-sm font-medium text-center" id="default-tab" data-tabs-toggle="#default-tab-content" role="tablist">
+                <ul class="flex flex-wrap -mb-px text-sm font-medium text-center" id="main-tabs" role="tablist">
                     <li class="me-2" role="presentation">
-                        <button class="inline-flex items-center p-4 border-b-2 rounded-t-lg text-green-600 border-green-600" id="create-tab" data-tabs-target="#create" type="button" role="tab" aria-controls="create" aria-selected="true">
+                        <button class="inline-flex items-center p-4 border-b-2 rounded-t-lg tab-button tab-active" 
+                                id="create-tab" 
+                                onclick="switchTab('create')" 
+                                type="button" 
+                                role="tab" 
+                                aria-controls="create" 
+                                aria-selected="true">
                             <i class="fas fa-plus mr-2"></i>
                             <span>Buat Notifikasi</span>
                             <span class="ml-2 bg-green-100 text-green-800 text-xs font-medium px-2 py-1 rounded-full">New</span>
                         </button>
                     </li>
                     <li class="me-2" role="presentation">
-                        <button class="inline-flex items-center p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300" id="notifications-tab" data-tabs-target="#notifications" type="button" role="tab" aria-controls="notifications" aria-selected="false">
+                        <button class="inline-flex items-center p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300 tab-button" 
+                                id="notifications-tab" 
+                                onclick="switchTab('notifications')" 
+                                type="button" 
+                                role="tab" 
+                                aria-controls="notifications" 
+                                aria-selected="false">
                             <i class="fas fa-bell mr-2"></i>
                             <span>Notifikasi</span>
                             <span class="ml-2 bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-1 rounded-full"><?php echo $stats['pending']; ?></span>
                         </button>
                     </li>
                     <li class="me-2" role="presentation">
-                        <button class="inline-flex items-center p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300" id="contacts-tab" data-tabs-target="#contacts" type="button" role="tab" aria-controls="contacts" aria-selected="false">
+                        <button class="inline-flex items-center p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300 tab-button" 
+                                id="contacts-tab" 
+                                onclick="switchTab('contacts')" 
+                                type="button" 
+                                role="tab" 
+                                aria-controls="contacts" 
+                                aria-selected="false">
                             <i class="fas fa-address-book mr-2"></i>
                             <span>Kontak</span>
                             <span class="ml-2 text-xs text-gray-500 px-2 py-1">(<?php echo count($contacts); ?>)</span>
                         </button>
                     </li>
                     <li class="me-2" role="presentation">
-                        <button class="inline-flex items-center p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300" id="groups-tab" data-tabs-target="#groups" type="button" role="tab" aria-controls="groups" aria-selected="false">
+                        <button class="inline-flex items-center p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300 tab-button" 
+                                id="groups-tab" 
+                                onclick="switchTab('groups')" 
+                                type="button" 
+                                role="tab" 
+                                aria-controls="groups" 
+                                aria-selected="false">
                             <i class="fas fa-users-cog mr-2"></i>
                             <span>Grup</span>
                             <span class="ml-2 text-xs text-gray-500 px-2 py-1">(<?php echo count($groups); ?>)</span>
                         </button>
                     </li>
                     <li class="me-2" role="presentation">
-                        <button class="inline-flex items-center p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300" id="templates-tab" data-tabs-target="#templates" type="button" role="tab" aria-controls="templates" aria-selected="false">
+                        <button class="inline-flex items-center p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300 tab-button" 
+                                id="templates-tab" 
+                                onclick="switchTab('templates')" 
+                                type="button" 
+                                role="tab" 
+                                aria-controls="templates" 
+                                aria-selected="false">
                             <i class="fas fa-file-alt mr-2"></i>
                             <span>Template</span>
                             <span class="ml-2 text-xs text-gray-500 px-2 py-1">(<?php echo count($templates); ?>)</span>
                         </button>
                     </li>
+                    
+                    <!-- Profile Tab (Initially Hidden) -->
+                    <li class="me-2 hidden" role="presentation" id="profile-tab-li">
+                        <button class="inline-flex items-center p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300 tab-button" 
+                                id="profile-tab" 
+                                onclick="switchTab('profile')" 
+                                type="button" 
+                                role="tab" 
+                                aria-controls="profile" 
+                                aria-selected="false">
+                            <i class="fas fa-user mr-2"></i>
+                            <span>Profil Saya</span>
+                        </button>
+                    </li>
+                    
+                    <!-- User Management Tab (Initially Hidden, Admin Only) -->
+                    <?php if (hasPermission('user.read')): ?>
+                    <li class="me-2 hidden" role="presentation" id="user-management-tab-li">
+                        <button class="inline-flex items-center p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300 tab-button" 
+                                id="user-management-tab" 
+                                onclick="switchTab('user-management')" 
+                                type="button" 
+                                role="tab" 
+                                aria-controls="user-management" 
+                                aria-selected="false">
+                            <i class="fas fa-users mr-2"></i>
+                            <span>Manajemen User</span>
+                        </button>
+                    </li>
+                    <?php endif; ?>
                 </ul>
             </div>
 
             <!-- Tab Content -->
-            <div id="default-tab-content">
+            <div id="tab-content">
                 <!-- Create Notification Tab -->
-                <div class="p-4 rounded-lg bg-gray-50 fade-in" id="create" role="tabpanel" aria-labelledby="create-tab">
+                <div class="p-4 rounded-lg bg-gray-50 fade-in tab-panel" id="create" role="tabpanel" aria-labelledby="create-tab">
                     <?php include 'components/create-notification.php'; ?>
                 </div>
 
                 <!-- Enhanced Notifications List Tab -->
-                <div class="hidden p-4 rounded-lg bg-gray-50" id="notifications" role="tabpanel" aria-labelledby="notifications-tab">
+                <div class="hidden p-4 rounded-lg bg-gray-50 tab-panel" id="notifications" role="tabpanel" aria-labelledby="notifications-tab">
                     <div class="bg-white p-6 rounded-lg shadow">
                         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                             <div>
@@ -395,7 +459,7 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
                                     <i class="fas fa-bell-slash text-6xl text-gray-300 mb-4"></i>
                                     <h3 class="text-lg font-medium text-gray-900 mb-2">Belum ada notifikasi</h3>
                                     <p class="text-gray-500 mb-6">Buat notifikasi pertama Anda dengan mengklik tab "Buat Notifikasi"</p>
-                                    <button onclick="document.getElementById('create-tab').click()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                                    <button onclick="switchTab('create')" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
                                         <i class="fas fa-plus mr-2"></i>Buat Notifikasi Pertama
                                     </button>
                                 </div>
@@ -406,17 +470,17 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
                 </div>
 
                 <!-- Contacts Tab -->
-                <div class="hidden p-4 rounded-lg bg-gray-50" id="contacts" role="tabpanel" aria-labelledby="contacts-tab">
+                <div class="hidden p-4 rounded-lg bg-gray-50 tab-panel" id="contacts" role="tabpanel" aria-labelledby="contacts-tab">
                     <?php include 'components/contacts.php'; ?>
                 </div>
 
                 <!-- Groups Tab -->
-                <div class="hidden p-4 rounded-lg bg-gray-50" id="groups" role="tabpanel" aria-labelledby="groups-tab">
+                <div class="hidden p-4 rounded-lg bg-gray-50 tab-panel" id="groups" role="tabpanel" aria-labelledby="groups-tab">
                     <?php include 'components/groups.php'; ?>
                 </div>
 
                 <!-- Templates Tab -->
-                <div class="hidden p-4 rounded-lg bg-gray-50" id="templates" role="tabpanel" aria-labelledby="templates-tab">
+                <div class="hidden p-4 rounded-lg bg-gray-50 tab-panel" id="templates" role="tabpanel" aria-labelledby="templates-tab">
                     <div class="bg-white p-6 rounded-lg shadow">
                         <div class="flex justify-between items-center mb-6">
                             <h3 class="text-lg font-semibold text-gray-900">Manajemen Template Pesan</h3>
@@ -537,6 +601,18 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
                     <!-- Template Management Modals -->
                     <?php include 'components/template-modals.php'; ?>
                 </div>
+                
+                <!-- Profile Tab -->
+                <div class="hidden p-4 rounded-lg bg-gray-50 tab-panel" id="profile" role="tabpanel" aria-labelledby="profile-tab">
+                    <?php include 'components/profile.php'; ?>
+                </div>
+                
+                <!-- User Management Tab -->
+                <?php if (hasPermission('user.read')): ?>
+                <div class="hidden p-4 rounded-lg bg-gray-50 tab-panel" id="user-management" role="tabpanel" aria-labelledby="user-management-tab">
+                    <?php include 'components/user-management.php'; ?>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -601,19 +677,74 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
 
     <script src="assets/js/app.js"></script>
     <script>
-        // Enhanced Notification Management JavaScript
+        // Enhanced Application JavaScript
         document.addEventListener('DOMContentLoaded', function() {
-            initializeNotificationManagement();
-            initializeTemplateManagement();
-            initializeTabSwitching();
+            initializeApplication();
         });
 
+        function initializeApplication() {
+            initializeNotificationManagement();
+            initializeTemplateManagement();
+            initializeUserManagement();
+        }
+
+        // ========== TAB MANAGEMENT ==========
+        function switchTab(tabName) {
+            // Remove active class from all buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('tab-active');
+                btn.classList.add('border-transparent', 'hover:text-gray-600', 'hover:border-gray-300');
+                btn.setAttribute('aria-selected', 'false');
+            });
+            
+            // Add active class to clicked button
+            const activeButton = document.getElementById(tabName + '-tab');
+            if (activeButton) {
+                activeButton.classList.add('tab-active');
+                activeButton.classList.remove('border-transparent', 'hover:text-gray-600', 'hover:border-gray-300');
+                activeButton.setAttribute('aria-selected', 'true');
+            }
+            
+            // Hide all panels
+            document.querySelectorAll('.tab-panel').forEach(panel => {
+                panel.classList.add('hidden');
+            });
+            
+            // Show target panel with animation
+            const targetPanel = document.getElementById(tabName);
+            if (targetPanel) {
+                targetPanel.classList.remove('hidden');
+                targetPanel.classList.add('fade-in');
+                setTimeout(() => {
+                    targetPanel.classList.remove('fade-in');
+                }, 500);
+            }
+        }
+
+        function showProfileTab() {
+            // Show profile tab
+            const profileTabLi = document.getElementById('profile-tab-li');
+            if (profileTabLi) {
+                profileTabLi.classList.remove('hidden');
+                switchTab('profile');
+            }
+        }
+
+        function showUserManagementTab() {
+            // Show user management tab
+            const userManagementTabLi = document.getElementById('user-management-tab-li');
+            if (userManagementTabLi) {
+                userManagementTabLi.classList.remove('hidden');
+                switchTab('user-management');
+            }
+        }
+
+        // ========== NOTIFICATION MANAGEMENT ==========
         function initializeNotificationManagement() {
             initializeNotificationSearch();
             initializeNotificationFilters();
         }
 
-        // ========== NOTIFICATION SEARCH & FILTER FUNCTIONALITY ==========
         function initializeNotificationSearch() {
             const searchInput = document.getElementById('notificationSearch');
             const clearBtn = document.getElementById('clearNotificationSearchBtn');
@@ -772,7 +903,7 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
                                 <button onclick="resetNotificationFilters()" class="text-blue-600 hover:text-blue-800 font-medium block mx-auto">
                                     <i class="fas fa-undo mr-1"></i>Reset semua filter
                                 </button>
-                                <button onclick="document.getElementById('create-tab').click()" class="text-green-600 hover:text-green-800 font-medium">
+                                <button onclick="switchTab('create')" class="text-green-600 hover:text-green-800 font-medium">
                                     <i class="fas fa-plus mr-1"></i>Buat notifikasi baru
                                 </button>
                             </div>
@@ -1048,41 +1179,46 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
             });
         }
 
-        // ========== TAB SWITCHING ==========
-        function initializeTabSwitching() {
-            const tabButtons = document.querySelectorAll('[data-tabs-target]');
-            const tabPanels = document.querySelectorAll('[role="tabpanel"]');
-            
-            tabButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    const target = this.getAttribute('data-tabs-target');
-                    const targetPanel = document.querySelector(target);
-                    
-                    // Remove active classes from all buttons
-                    tabButtons.forEach(btn => {
-                        btn.classList.remove('text-green-600', 'border-green-600');
-                        btn.classList.add('border-transparent', 'hover:text-gray-600', 'hover:border-gray-300');
+        // ========== USER MANAGEMENT ==========
+        function initializeUserManagement() {
+            // This would be implemented based on the user-management.php component
+        }
+
+        function editUser(id, fullName, email, username, isActive) {
+            // Implement edit user functionality
+            console.log('Edit user:', { id, fullName, email, username, isActive });
+        }
+
+        function deleteUser(id) {
+            showConfirmModal(
+                'Hapus User',
+                'Apakah Anda yakin ingin menghapus user ini?',
+                'Hapus',
+                'danger',
+                () => {
+                    fetch('api.php/user/' + id, {
+                        method: 'DELETE'
+                    })
+                    .then(response => response.json())
+                    .then(result => {
+                        if (result.success) {
+                            showSuccess('User berhasil dihapus');
+                            setTimeout(() => location.reload(), 1500);
+                        } else {
+                            showError('Gagal menghapus user: ' + result.error);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showError('Terjadi kesalahan sistem');
                     });
-                    
-                    // Add active class to clicked button
-                    this.classList.add('text-green-600', 'border-green-600');
-                    this.classList.remove('border-transparent', 'hover:text-gray-600', 'hover:border-gray-300');
-                    
-                    // Hide all panels
-                    tabPanels.forEach(panel => {
-                        panel.classList.add('hidden');
-                    });
-                    
-                    // Show target panel with animation
-                    if (targetPanel) {
-                        targetPanel.classList.remove('hidden');
-                        targetPanel.classList.add('fade-in');
-                        setTimeout(() => {
-                            targetPanel.classList.remove('fade-in');
-                        }, 500);
-                    }
-                });
-            });
+                }
+            );
+        }
+
+        function viewUserActivity(userId) {
+            // Implement view user activity
+            console.log('View activity for user:', userId);
         }
 
         // ========== GLOBAL UTILITY FUNCTIONS ==========
